@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* Country Beige — warm wall tone (~Behr Country Beige family, #EAE1CB) */
+  --color-canvas: #eae1cb;
+  --color-canvas-deep: #dfd4bc;
+
+  /*
+   * Map “indigo” utilities to a warm umber that pairs with Country Beige
+   * (keeps existing class names; shifts hue from cool purple to earthy brown).
+   */
+  --color-indigo-50: #faf6ef;
+  --color-indigo-100: #f0e8d9;
+  --color-indigo-200: #e2d2b8;
+  --color-indigo-300: #cdb896;
+  --color-indigo-400: #a78968;
+  --color-indigo-500: #8f714f;
+  --color-indigo-600: #7a5e41;
+  --color-indigo-700: #664e37;
+  --color-indigo-800: #56412f;
+  --color-indigo-900: #483729;
+
+  /* Warmer neutrals for panels, inputs, borders */
+  --color-gray-50: #f7f4ec;
+  --color-gray-100: #ede8de;
+  --color-gray-200: #dbd3c4;
+
+  /* Slate → warm greige for typography and dashboard chrome */
+  --color-slate-50: #f8f6f0;
+  --color-slate-100: #ece8df;
+  --color-slate-200: #d9d3c5;
+  --color-slate-300: #b9b0a1;
+  --color-slate-400: #8a8175;
+  --color-slate-500: #6d655b;
+  --color-slate-600: #575049;
+  --color-slate-700: #47413b;
+  --color-slate-800: #3b3632;
+  --color-slate-900: #2c2825;
+
+  /* Secondary accents (replace cool purple/magenta with bronze / russet) */
+  --color-violet-500: #8f6e52;
+  --color-violet-600: #7a5d47;
+  --color-violet-700: #654d3c;
+
+  --color-fuchsia-400: #c4a078;
+  --color-fuchsia-500: #b38a65;
+  --color-fuchsia-600: #9a7555;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  @apply antialiased text-slate-900 bg-canvas;
+}
+
+::selection {
+  background-color: color-mix(in oklab, var(--color-indigo-600) 28%, transparent);
+}
+
+/* Used by modals & dashboard scroll regions */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--color-slate-400) 55%, var(--color-canvas)) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: color-mix(in oklab, var(--color-slate-400) 45%, var(--color-canvas-deep));
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in oklab, var(--color-slate-500) 55%, var(--color-canvas-deep));
+}
