@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Package, Users, Bell, Search, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Package, Users, Bell, Search, Menu, X, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 
@@ -85,6 +85,18 @@ export default function Layout({
             >
               <Menu size={22} />
             </button>
+
+            {activeTab !== 'dashboard' && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('dashboard')}
+                className="flex shrink-0 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-2.5 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 sm:gap-2 sm:px-3"
+                aria-label="Back to dashboard"
+              >
+                <ArrowLeft size={18} aria-hidden />
+                <span className="hidden sm:inline">Dashboard</span>
+              </button>
+            )}
 
             <div className="relative min-w-0 flex-1 sm:max-w-md">
               <Search

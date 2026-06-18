@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   subscribe,
   getState,
   patchEmployee,
   deleteEmployee,
+  deleteEmployees,
   upsertEmployeeByEmployeeNumber,
 } from '../data/localStore';
 import { Timestamp } from '../lib/timestamp';
@@ -21,6 +22,7 @@ import {
   List,
 } from 'lucide-react';
 import EmployeeExcelImportDialog from './EmployeeExcelImportDialog';
+import BulkSelectionBar from './BulkSelectionBar';
 import { motion, AnimatePresence } from 'motion/react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -77,6 +79,7 @@ export default function EmployeeList({
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [importExcelOpen, setImportExcelOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<EmployeeFormData>({
     resolver: zodResolver(employeeSchema),
@@ -155,43 +158,100 @@ export default function EmployeeList({
     setEditingEmployee(null);
   };
 
-  const filteredEmployees = employees.filter((emp) => {
-    const matchesSearch =
-      (emp.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (emp.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (emp.employeeNumber || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (emp.department || '').toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || emp.status === filterStatus;
-    const matchesLocation = filterLocation === 'all' || emp.location === filterLocation;
-    const matchesType =
-      filterEmployeeType === 'all' || resolveEmployeeType(emp) === filterEmployeeType;
-    const deptTrim = (emp.department || '').trim();
-    const matchesDepartment =
-      filterDepartment === 'all' ||
-      (filterDepartment === DEPT_EMPTY && !deptTrim) ||
-      (filterDepartment !== DEPT_EMPTY && deptTrim === filterDepartment);
-    const emailTrim = (emp.email || '').trim();
-    const matchesEmail =
-      filterEmail === 'all' ||
-      (filterEmail === 'has' && !!emailTrim) ||
-      (filterEmail === 'missing' && !emailTrim);
-    const matchesJoined = employeeMatchesJoined(emp, filterJoined);
-    const hasAssignedAsset = assets.some((a) => a.assignedTo === emp.id);
-    const matchesHardware =
-      filterHardware === 'all' ||
-      (filterHardware === 'has_asset' && hasAssignedAsset) ||
-      (filterHardware === 'none' && !hasAssignedAsset);
-    return (
-      matchesSearch &&
-      matchesStatus &&
-      matchesLocation &&
-      matchesType &&
-      matchesDepartment &&
-      matchesEmail &&
-      matchesJoined &&
-      matchesHardware
-    );
-  });
+  const filteredEmployees = useMemo(() => {
+    return employees.filter((emp) => {
+      const matchesSearch =
+        (emp.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (emp.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (emp.employeeNumber || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (emp.department || '').toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = filterStatus === 'all' || emp.status === filterStatus;
+      const matchesLocation = filterLocation === 'all' || emp.location === filterLocation;
+      const matchesType =
+        filterEmployeeType === 'all' || resolveEmployeeType(emp) === filterEmployeeType;
+      const deptTrim = (emp.department || '').trim();
+      const matchesDepartment =
+        filterDepartment === 'all' ||
+        (filterDepartment === DEPT_EMPTY && !deptTrim) ||
+        (filterDepartment !== DEPT_EMPTY && deptTrim === filterDepartment);
+      const emailTrim = (emp.email || '').trim();
+      const matchesEmail =
+        filterEmail === 'all' ||
+        (filterEmail === 'has' && !!emailTrim) ||
+        (filterEmail === 'missing' && !emailTrim);
+      const matchesJoined = employeeMatchesJoined(emp, filterJoined);
+      const hasAssignedAsset = assets.some((a) => a.assignedTo === emp.id);
+      const matchesHardware =
+        filterHardware === 'all' ||
+        (filterHardware === 'has_asset' && hasAssignedAsset) ||
+        (filterHardware === 'none' && !hasAssignedAsset);
+      return (
+        matchesSearch &&
+        matchesStatus &&
+        matchesLocation &&
+        matchesType &&
+        matchesDepartment &&
+        matchesEmail &&
+        matchesJoined &&
+        matchesHardware
+      );
+    });
+  }, [
+    employees,
+    assets,
+    searchQuery,
+    filterStatus,
+    filterLocation,
+    filterEmployeeType,
+    filterDepartment,
+    filterEmail,
+    filterJoined,
+    filterHardware,
+  ]);
+
+  const filteredIdSet = useMemo(() => new Set(filteredEmployees.map((e) => e.id)), [filteredEmployees]);
+  const allFilteredSelected =
+    filteredEmployees.length > 0 && filteredEmployees.every((e) => selectedIds.has(e.id));
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllFiltered = () => {
+    if (allFilteredSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const e of filteredEmployees) next.delete(e.id);
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const e of filteredEmployees) next.add(e.id);
+        return next;
+      });
+    }
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const handleBulkDelete = () => {
+    const ids = [...selectedIds].filter((id) => filteredIdSet.has(id));
+    if (ids.length === 0) return;
+    if (
+      !window.confirm(
+        `Delete ${ids.length} employee(s)? Their asset assignment links will remain on assets until reassigned.`
+      )
+    )
+      return;
+    deleteEmployees(ids);
+    clearSelection();
+  };
 
   const locations = Array.from(new Set(employees.map((e) => e.location))).filter(Boolean);
   const departmentSet = new Set<string>();
@@ -361,6 +421,16 @@ export default function EmployeeList({
             <option value="none">No asset assigned</option>
           </select>
         </div>
+
+        <BulkSelectionBar
+          filteredCount={filteredEmployees.length}
+          selectedCount={[...selectedIds].filter((id) => filteredIdSet.has(id)).length}
+          allFilteredSelected={allFilteredSelected}
+          onToggleSelectAll={toggleSelectAllFiltered}
+          onClearSelection={clearSelection}
+          onBulkDelete={handleBulkDelete}
+          nounSingular="employee"
+        />
       </div>
 
       {viewMode === 'grid' ? (
@@ -373,11 +443,27 @@ export default function EmployeeList({
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all"
+                className={cn(
+                  'bg-white p-6 rounded-2xl border shadow-sm hover:shadow-md transition-all',
+                  selectedIds.has(emp.id)
+                    ? 'border-indigo-300 ring-2 ring-indigo-500/30'
+                    : 'border-gray-100'
+                )}
               >
                 <div className="flex justify-between items-start mb-4">
-                  <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
-                    <Users size={24} />
+                  <div className="flex items-start gap-3">
+                    <label className="mt-3 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(emp.id)}
+                        onChange={() => toggleSelect(emp.id)}
+                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        aria-label={`Select ${emp.name || 'employee'}`}
+                      />
+                    </label>
+                    <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
+                      <Users size={24} />
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -461,8 +547,20 @@ export default function EmployeeList({
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
-                className="flex flex-col gap-3 border-b border-gray-100 p-4 last:border-b-0 hover:bg-gray-50/60 sm:flex-row sm:items-center sm:gap-4"
+                className={cn(
+                  'flex flex-col gap-3 border-b border-gray-100 p-4 last:border-b-0 hover:bg-gray-50/60 sm:flex-row sm:items-center sm:gap-4',
+                  selectedIds.has(emp.id) && 'bg-indigo-50/40'
+                )}
               >
+                <label className="flex shrink-0 items-center" onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(emp.id)}
+                    onChange={() => toggleSelect(emp.id)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    aria-label={`Select ${emp.name || 'employee'}`}
+                  />
+                </label>
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
                   <Users size={22} />
                 </div>

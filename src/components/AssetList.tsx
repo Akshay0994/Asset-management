@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { subscribe, getState, deleteAsset } from '../data/localStore';
+import { subscribe, getState, deleteAsset, deleteAssets } from '../data/localStore';
 import {
   Asset,
   ASSET_LIST_STATUS_RETIRED_STOLEN,
@@ -24,6 +24,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import AssetExcelImportDialog from './AssetExcelImportDialog';
+import BulkSelectionBar from './BulkSelectionBar';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 
@@ -125,6 +126,7 @@ export default function AssetList({
   const [openMenuAssetId, setOpenMenuAssetId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [importExcelOpen, setImportExcelOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     if (openMenuAssetId === null) return;
@@ -160,50 +162,106 @@ export default function AssetList({
     onNavigateFiltersApplied?.();
   }, [navigateFilters, onNavigateFiltersApplied]);
 
-  const filteredAssets = assets.filter((asset) => {
-    const matchesSearch =
-      (asset.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (asset.serialNumber || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (asset.deviceId || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (asset.assignedTo &&
-        employees
-          .find((e) => e.id === asset.assignedTo)
-          ?.name.toLowerCase()
-          .includes(searchQuery.toLowerCase()));
-    const matchesType =
-      filterType === 'all' || (asset.type || '').trim().toLowerCase() === filterType;
-    const matchesStatus =
-      filterStatus === 'all' ||
-      (filterStatus === ASSET_LIST_STATUS_RETIRED_STOLEN
-        ? asset.status === 'Retired' || asset.status === 'Stolen'
-        : asset.status === filterStatus);
-    const matchesLocation = filterLocation === 'all' || asset.location === filterLocation;
-    const matchesModel = filterModel === 'all' || asset.model === filterModel;
-    const matchesWarranty = assetMatchesWarrantyFilter(asset, filterWarranty);
-    const matchesAssignment =
-      filterAssignment === 'all' ||
-      (filterAssignment === 'assigned' && !!asset.assignedTo) ||
-      (filterAssignment === 'unassigned' && !asset.assignedTo);
-    const matchesRam = matchesSpecFilter(asset.ram, filterRam);
-    const matchesStorage = matchesSpecFilter(asset.storage, filterStorage);
-    const matchesChip = matchesSpecFilter(asset.chip, filterChip);
-    const matchesPurchase = assetMatchesPurchaseFilter(asset, filterPurchase);
-    const matchesMacBookLine = assetMatchesMacBookLineFilter(asset, filterMacBookLine);
-    return (
-      matchesSearch &&
-      matchesType &&
-      matchesStatus &&
-      matchesLocation &&
-      matchesModel &&
-      matchesWarranty &&
-      matchesAssignment &&
-      matchesRam &&
-      matchesStorage &&
-      matchesChip &&
-      matchesPurchase &&
-      matchesMacBookLine
-    );
-  });
+  const filteredAssets = useMemo(() => {
+    return assets.filter((asset) => {
+      const matchesSearch =
+        (asset.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (asset.serialNumber || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (asset.deviceId || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (asset.assignedTo &&
+          employees
+            .find((e) => e.id === asset.assignedTo)
+            ?.name.toLowerCase()
+            .includes(searchQuery.toLowerCase()));
+      const matchesType =
+        filterType === 'all' || (asset.type || '').trim().toLowerCase() === filterType;
+      const matchesStatus =
+        filterStatus === 'all' ||
+        (filterStatus === ASSET_LIST_STATUS_RETIRED_STOLEN
+          ? asset.status === 'Retired' || asset.status === 'Stolen'
+          : asset.status === filterStatus);
+      const matchesLocation = filterLocation === 'all' || asset.location === filterLocation;
+      const matchesModel = filterModel === 'all' || asset.model === filterModel;
+      const matchesWarranty = assetMatchesWarrantyFilter(asset, filterWarranty);
+      const matchesAssignment =
+        filterAssignment === 'all' ||
+        (filterAssignment === 'assigned' && !!asset.assignedTo) ||
+        (filterAssignment === 'unassigned' && !asset.assignedTo);
+      const matchesRam = matchesSpecFilter(asset.ram, filterRam);
+      const matchesStorage = matchesSpecFilter(asset.storage, filterStorage);
+      const matchesChip = matchesSpecFilter(asset.chip, filterChip);
+      const matchesPurchase = assetMatchesPurchaseFilter(asset, filterPurchase);
+      const matchesMacBookLine = assetMatchesMacBookLineFilter(asset, filterMacBookLine);
+      return (
+        matchesSearch &&
+        matchesType &&
+        matchesStatus &&
+        matchesLocation &&
+        matchesModel &&
+        matchesWarranty &&
+        matchesAssignment &&
+        matchesRam &&
+        matchesStorage &&
+        matchesChip &&
+        matchesPurchase &&
+        matchesMacBookLine
+      );
+    });
+  }, [
+    assets,
+    employees,
+    searchQuery,
+    filterType,
+    filterStatus,
+    filterLocation,
+    filterModel,
+    filterWarranty,
+    filterAssignment,
+    filterRam,
+    filterStorage,
+    filterChip,
+    filterPurchase,
+    filterMacBookLine,
+  ]);
+
+  const filteredIdSet = useMemo(() => new Set(filteredAssets.map((a) => a.id)), [filteredAssets]);
+  const allFilteredSelected =
+    filteredAssets.length > 0 && filteredAssets.every((a) => selectedIds.has(a.id));
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllFiltered = () => {
+    if (allFilteredSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const a of filteredAssets) next.delete(a.id);
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const a of filteredAssets) next.add(a.id);
+        return next;
+      });
+    }
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const handleBulkDelete = () => {
+    const ids = [...selectedIds].filter((id) => filteredIdSet.has(id));
+    if (ids.length === 0) return;
+    if (!window.confirm(`Delete ${ids.length} asset(s)? This cannot be undone.`)) return;
+    deleteAssets(ids);
+    clearSelection();
+  };
 
   const locations = Array.from(new Set(assets.map((a) => a.location))).filter(Boolean);
   const models = Array.from(new Set(assets.map((a) => a.model))).filter(Boolean);
@@ -497,6 +555,16 @@ export default function AssetList({
             <option value="older_3y">Purchased over 3 years ago</option>
           </select>
         </div>
+
+        <BulkSelectionBar
+          filteredCount={filteredAssets.length}
+          selectedCount={[...selectedIds].filter((id) => filteredIdSet.has(id)).length}
+          allFilteredSelected={allFilteredSelected}
+          onToggleSelectAll={toggleSelectAllFiltered}
+          onClearSelection={clearSelection}
+          onBulkDelete={handleBulkDelete}
+          nounSingular="asset"
+        />
       </div>
 
       {viewMode === 'grid' ? (
@@ -509,12 +577,30 @@ export default function AssetList({
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all group"
+                className={cn(
+                  'bg-white p-5 rounded-2xl border shadow-sm hover:shadow-md transition-all group',
+                  selectedIds.has(asset.id)
+                    ? 'border-indigo-300 ring-2 ring-indigo-500/30'
+                    : 'border-gray-100'
+                )}
               >
                 <div className="flex justify-between items-start mb-4">
-                  <div
-                    className={cn(
-                      'p-2.5 rounded-xl',
+                  <div className="flex items-start gap-2">
+                    <label
+                      className="mt-1 shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(asset.id)}
+                        onChange={() => toggleSelect(asset.id)}
+                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        aria-label={`Select ${asset.name || 'asset'}`}
+                      />
+                    </label>
+                    <div
+                      className={cn(
+                        'p-2.5 rounded-xl',
                       asset.status === 'Inventory'
                         ? 'bg-green-50 text-green-600'
                         : asset.status === 'Assigned'
@@ -529,6 +615,7 @@ export default function AssetList({
                     )}
                   >
                     <TypeIcon type={asset.type} />
+                  </div>
                   </div>
                   <div className="flex items-center gap-1">
                     <span
@@ -657,8 +744,20 @@ export default function AssetList({
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
-                className="flex flex-col gap-3 border-b border-gray-100 p-4 last:border-b-0 hover:bg-gray-50/60 sm:flex-row sm:items-center sm:gap-4"
+                className={cn(
+                  'flex flex-col gap-3 border-b border-gray-100 p-4 last:border-b-0 hover:bg-gray-50/60 sm:flex-row sm:items-center sm:gap-4',
+                  selectedIds.has(asset.id) && 'bg-indigo-50/40'
+                )}
               >
+                <label className="flex shrink-0 items-center" onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(asset.id)}
+                    onChange={() => toggleSelect(asset.id)}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    aria-label={`Select ${asset.name || 'asset'}`}
+                  />
+                </label>
                 <div
                   className={cn(
                     'flex size-10 shrink-0 items-center justify-center rounded-xl sm:size-11',

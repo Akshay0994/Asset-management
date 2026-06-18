@@ -89,8 +89,17 @@ export function patchAsset(id: string, patch: Partial<Asset>): void {
 }
 
 export function deleteAsset(id: string): void {
-  state.assets = state.assets.filter((a) => a.id !== id);
-  persist();
+  deleteAssets([id]);
+}
+
+export function deleteAssets(ids: readonly string[]): number {
+  if (ids.length === 0) return 0;
+  const set = new Set(ids);
+  const before = state.assets.length;
+  state.assets = state.assets.filter((a) => !set.has(a.id));
+  const removed = before - state.assets.length;
+  if (removed > 0) persist();
+  return removed;
 }
 
 export function insertEmployee(row: Omit<Employee, 'id'>): void {
@@ -174,8 +183,17 @@ export function patchEmployee(id: string, patch: Partial<Employee>): void {
 }
 
 export function deleteEmployee(id: string): void {
-  state.employees = state.employees.filter((e) => e.id !== id);
-  persist();
+  deleteEmployees([id]);
+}
+
+export function deleteEmployees(ids: readonly string[]): number {
+  if (ids.length === 0) return 0;
+  const set = new Set(ids);
+  const before = state.employees.length;
+  state.employees = state.employees.filter((e) => !set.has(e.id));
+  const removed = before - state.employees.length;
+  if (removed > 0) persist();
+  return removed;
 }
 
 function isRealEmployeeNumber(num: string): boolean {
