@@ -71,7 +71,9 @@ export default function AssetExcelImportDialog({
             <div>
               <h2 className="text-xl font-bold text-gray-900">Import assets from Excel</h2>
               <p className="text-sm text-gray-500 mt-0.5">
-                .xlsx or .xls — first sheet only. Existing assets are matched by serial number (case-insensitive).
+                .xlsx or .xls — first sheet only. Each row is matched by{' '}
+                <span className="font-medium text-gray-700">Serial Number</span> (updates existing assets; blank
+                columns are left unchanged).
               </p>
             </div>
           </div>
@@ -86,7 +88,9 @@ export default function AssetExcelImportDialog({
 
         <div className="space-y-3 text-sm text-gray-600 mb-4">
           <p>
-            <span className="font-semibold text-gray-800">Required:</span> Serial Number.{' '}
+            <span className="font-semibold text-gray-800">Required:</span> Serial Number — used as the unique key.{' '}
+            If that serial already exists, the row <span className="font-semibold text-gray-800">updates</span> that
+            asset; only filled-in columns change.{' '}
             <span className="font-semibold text-gray-800">Optional:</span> name, model, type, location, status,
             warranty and purchase fields, RAM/storage/chip, notes, and <span className="font-semibold text-gray-800">
               Employee ID or Assignee Email

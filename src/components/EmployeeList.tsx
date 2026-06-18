@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import {
   subscribe,
   getState,
-  insertEmployee,
   patchEmployee,
   deleteEmployee,
+  upsertEmployeeByEmployeeNumber,
 } from '../data/localStore';
 import { Timestamp } from '../lib/timestamp';
 import { Employee, EmployeeType, EmploymentStatus, Asset } from '../types';
@@ -143,9 +143,14 @@ export default function EmployeeList({
     if (editingEmployee) {
       patchEmployee(editingEmployee.id, row);
     } else {
-      insertEmployee({
-        ...row,
-        createdAt: now,
+      upsertEmployeeByEmployeeNumber({
+        name: row.name,
+        employeeNumber: row.employeeNumber,
+        email: row.email,
+        department: row.department,
+        location: row.location,
+        employeeType: row.employeeType,
+        status,
       });
     }
     setIsFormOpen(false);

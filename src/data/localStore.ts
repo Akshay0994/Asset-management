@@ -3,6 +3,7 @@ import type { ParsedAssetImportRow } from '../lib/assetExcelImport';
 import type { Asset, Assignment, Employee, EmployeeType, EmploymentStatus, HistoryEvent } from '../types';
 
 const STORAGE_KEY = 'assettrack-it-v1';
+const DEDUP_MIGRATION_KEY = 'assettrack-it-migration-dedup-v2';
 
 export const PERFORMED_BY = 'Admin';
 
@@ -97,7 +98,34 @@ export function insertEmployee(row: Omit<Employee, 'id'>): void {
   persist();
 }
 
-/** Create or update by employee number (case-insensitive match). */
+function findEmployeeIndexForUpsert(employeeNumber: string, email: string): number {
+  const num = employeeNumber.trim().toLowerCase();
+  const em = email.trim().toLowerCase();
+
+  if (num) {
+    const byNumber = state.employees.findIndex(
+      (e) => e.employeeNumber.trim().toLowerCase() === num
+    );
+    if (byNumber >= 0) return byNumber;
+  }
+
+  const emailKeys = new Set<string>();
+  if (em) emailKeys.add(em);
+  if (num.includes('@')) emailKeys.add(num);
+
+  for (const key of emailKeys) {
+    const byEmail = state.employees.findIndex(
+      (e) =>
+        (e.email || '').trim().toLowerCase() === key ||
+        e.employeeNumber.trim().toLowerCase() === key
+    );
+    if (byEmail >= 0) return byEmail;
+  }
+
+  return -1;
+}
+
+/** Create or update by employee number, then email (case-insensitive match). */
 export function upsertEmployeeByEmployeeNumber(row: {
   name: string;
   employeeNumber: string;
@@ -108,18 +136,18 @@ export function upsertEmployeeByEmployeeNumber(row: {
   employeeType: EmployeeType;
 }): { created: boolean } {
   const num = row.employeeNumber.trim();
-  const i = state.employees.findIndex(
-    (e) => e.employeeNumber.trim().toLowerCase() === num.toLowerCase()
-  );
+  const i = findEmployeeIndexForUpsert(num, row.email);
   const now = Timestamp.now();
+  const existing = i >= 0 ? state.employees[i] : undefined;
+  const importEmail = row.email.trim();
   const base = {
-    name: row.name.trim() || num,
-    employeeNumber: num,
-    email: row.email.trim(),
-    department: row.department?.trim() || undefined,
-    location: (row.location || '').trim(),
-    status: row.status,
-    employeeType: row.employeeType,
+    name: row.name.trim() || existing?.name || num,
+    employeeNumber: num || existing?.employeeNumber || importEmail,
+    email: importEmail || existing?.email || (num.includes('@') ? num : ''),
+    department: row.department?.trim() || existing?.department || undefined,
+    location: (row.location || '').trim() || existing?.location || '',
+    status: row.status || existing?.status || 'Active',
+    employeeType: row.employeeType || existing?.employeeType || 'Regular',
     updatedAt: now,
   };
   if (i >= 0) {
@@ -148,6 +176,159 @@ export function patchEmployee(id: string, patch: Partial<Employee>): void {
 export function deleteEmployee(id: string): void {
   state.employees = state.employees.filter((e) => e.id !== id);
   persist();
+}
+
+function isRealEmployeeNumber(num: string): boolean {
+  const t = num.trim();
+  return t.length > 0 && !t.includes('@');
+}
+
+function employeesAreDuplicates(a: Employee, b: Employee): boolean {
+  if (a.id === b.id) return false;
+
+  const aEmail = (a.email || '').trim().toLowerCase();
+  const bEmail = (b.email || '').trim().toLowerCase();
+  const aNum = a.employeeNumber.trim().toLowerCase();
+  const bNum = b.employeeNumber.trim().toLowerCase();
+
+  if (aEmail && bEmail && aEmail === bEmail) return true;
+  if (aEmail && aEmail === bNum) return true;
+  if (bEmail && bEmail === aNum) return true;
+  if (aNum && bNum && aNum === bNum) return true;
+
+  return false;
+}
+
+function employeeLinkScore(emp: Employee): number {
+  let score = 0;
+  if (isRealEmployeeNumber(emp.employeeNumber)) score += 100;
+  score += state.assignments.filter((a) => a.employeeId === emp.id).length * 10;
+  score += state.assets.filter((a) => a.assignedTo === emp.id).length * 10;
+  if ((emp.email || '').trim()) score += 5;
+  if ((emp.department || '').trim()) score += 1;
+  if ((emp.location || '').trim()) score += 1;
+  return score;
+}
+
+function mergeEmployeeRecords(group: Employee[]): Employee {
+  const sorted = [...group].sort((a, b) => employeeLinkScore(b) - employeeLinkScore(a));
+  const canonical = sorted[0]!;
+  const realNumber =
+    sorted.find((e) => isRealEmployeeNumber(e.employeeNumber))?.employeeNumber.trim() ||
+    canonical.employeeNumber.trim();
+  const email =
+    sorted.find((e) => (e.email || '').trim())?.email.trim() ||
+    sorted.find((e) => e.employeeNumber.trim().includes('@'))?.employeeNumber.trim() ||
+    '';
+  const name = sorted.reduce(
+    (best, e) => ((e.name || '').trim().length > best.length ? (e.name || '').trim() : best),
+    (canonical.name || '').trim()
+  );
+  const department = sorted.find((e) => (e.department || '').trim())?.department?.trim();
+  const location = sorted.find((e) => (e.location || '').trim())?.location.trim() || '';
+  const status = sorted.find((e) => e.status)?.status || canonical.status || 'Active';
+  const employeeType = sorted.find((e) => e.employeeType)?.employeeType || canonical.employeeType || 'Regular';
+  const createdAt = sorted.reduce(
+    (earliest, e) => (e.createdAt.toMillis() < earliest.toMillis() ? e.createdAt : earliest),
+    canonical.createdAt
+  );
+
+  return {
+    ...canonical,
+    name: name || realNumber || email,
+    employeeNumber: realNumber || email,
+    email,
+    department,
+    location,
+    status,
+    employeeType,
+    createdAt,
+    updatedAt: Timestamp.now(),
+  };
+}
+
+function reassignEmployeeReferences(fromId: string, toId: string): Set<string> {
+  const affectedAssets = new Set<string>();
+
+  for (const a of state.assignments) {
+    if (a.employeeId === fromId) {
+      a.employeeId = toId;
+      affectedAssets.add(a.assetId);
+    }
+  }
+
+  for (const asset of state.assets) {
+    if (asset.assignedTo === fromId) {
+      asset.assignedTo = toId;
+      affectedAssets.add(asset.id);
+    }
+  }
+
+  for (const h of state.history) {
+    if (h.userId === fromId) h.userId = toId;
+    if (h.employeeId === fromId) h.employeeId = toId;
+  }
+
+  return affectedAssets;
+}
+
+/** Merge duplicate employees (same email / email-as-ID) and reassign linked records. */
+export function deduplicateEmployees(): { mergedGroups: number; removed: number } {
+  const groups: Employee[][] = [];
+  const assigned = new Set<string>();
+
+  for (const emp of state.employees) {
+    if (assigned.has(emp.id)) continue;
+    const group = [emp];
+    assigned.add(emp.id);
+
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const other of state.employees) {
+        if (assigned.has(other.id)) continue;
+        if (group.some((member) => employeesAreDuplicates(member, other))) {
+          group.push(other);
+          assigned.add(other.id);
+          changed = true;
+        }
+      }
+    }
+
+    if (group.length > 1) groups.push(group);
+  }
+
+  let removed = 0;
+  const assetsToReconcile = new Set<string>();
+
+  for (const group of groups) {
+    const merged = mergeEmployeeRecords(group);
+    const keepId = merged.id;
+    const dropIds = group.filter((e) => e.id !== keepId).map((e) => e.id);
+
+    const i = state.employees.findIndex((e) => e.id === keepId);
+    if (i >= 0) state.employees[i] = merged;
+
+    for (const fromId of dropIds) {
+      reassignEmployeeReferences(fromId, keepId).forEach((id) => assetsToReconcile.add(id));
+      state.employees = state.employees.filter((e) => e.id !== fromId);
+      removed += 1;
+    }
+  }
+
+  if (removed > 0) {
+    for (const assetId of assetsToReconcile) {
+      reconcileAssetAssignmentState(assetId);
+    }
+    persist();
+    if (import.meta.env.DEV) {
+      console.info(
+        `[AssetTrack] Merged ${groups.length} duplicate employee group(s); removed ${removed} duplicate record(s).`
+      );
+    }
+  }
+
+  return { mergedGroups: groups.length, removed };
 }
 
 export function insertAssignment(row: Omit<Assignment, 'id'>): string {
@@ -208,7 +389,11 @@ export function findEmployeeForImportAssignee(key: string): Employee | undefined
   const k = key.trim().toLowerCase();
   if (!k) return undefined;
   if (k.includes('@')) {
-    return state.employees.find((e) => (e.email || '').trim().toLowerCase() === k);
+    return state.employees.find(
+      (e) =>
+        (e.email || '').trim().toLowerCase() === k ||
+        e.employeeNumber.trim().toLowerCase() === k
+    );
   }
   return state.employees.find((e) => e.employeeNumber.trim().toLowerCase() === k);
 }
@@ -242,23 +427,56 @@ export function closeOpenAssignmentsForAsset(assetId: string, returnAt: Timestam
 
 /**
  * Upsert one parsed import row (by serial number) and optionally assign to an employee.
- * Returns whether the asset was newly created and any non-fatal warnings.
+ * Existing assets are matched by serial (case-insensitive); only columns present in the row are updated.
  */
 export function applyAssetImportRow(row: ParsedAssetImportRow): { created: boolean; warnings: string[] } {
   const warnings: string[] = [];
-  const { catalog, assigneeEmployeeKey } = row;
+  const { catalog, assigneeEmployeeKey, providedFields } = row;
+  const provided = new Set(providedFields);
   const assignKey = (assigneeEmployeeKey || '').trim();
   const now = Timestamp.now();
+  const serial = catalog.serialNumber.trim();
 
-  const existing = findAssetBySerial(catalog.serialNumber);
-  const payload: Omit<Asset, 'id' | 'deviceId' | 'createdAt'> = {
+  const existing = findAssetBySerial(serial);
+
+  if (existing) {
+    const patch: Partial<Asset> = {
+      serialNumber: serial,
+      updatedAt: now,
+    };
+
+    if (provided.has('name')) patch.name = catalog.name;
+    if (provided.has('model')) patch.model = catalog.model;
+    if (provided.has('type')) patch.type = catalog.type;
+    if (provided.has('location')) patch.location = catalog.location;
+    if (provided.has('status') && !assignKey) patch.status = catalog.status;
+    if (provided.has('warrantyStatus')) patch.warrantyStatus = catalog.warrantyStatus;
+    if (provided.has('warrantyExpiry') && catalog.warrantyExpiry) patch.warrantyExpiry = catalog.warrantyExpiry;
+    if (provided.has('purchaseDate') && catalog.purchaseDate) patch.purchaseDate = catalog.purchaseDate;
+    if (provided.has('ram')) patch.ram = catalog.ram;
+    if (provided.has('storage')) patch.storage = catalog.storage;
+    if (provided.has('chip')) patch.chip = catalog.chip;
+    if (provided.has('notes')) patch.notes = catalog.notes;
+
+    patchAsset(existing.id, patch);
+    insertHistory({
+      assetId: existing.id,
+      type: 'Update',
+      description: `Asset updated from spreadsheet import (serial ${serial}).`,
+      timestamp: now,
+      performedBy: PERFORMED_BY,
+    });
+
+    return finishAssetImportAssignment(existing.id, catalog, assignKey, row.excelRow, warnings, false);
+  }
+
+  const assetId = insertAsset({
     name: catalog.name,
     model: catalog.model,
     type: catalog.type,
-    serialNumber: catalog.serialNumber.trim(),
+    serialNumber: serial,
     location: catalog.location,
     status: catalog.status,
-    assignedTo: existing?.assignedTo,
     purchaseDate: catalog.purchaseDate,
     warrantyStatus: catalog.warrantyStatus,
     warrantyExpiry: catalog.warrantyExpiry,
@@ -266,37 +484,36 @@ export function applyAssetImportRow(row: ParsedAssetImportRow): { created: boole
     storage: catalog.storage,
     chip: catalog.chip,
     notes: catalog.notes,
+    deviceId: newDeviceId(),
+    createdAt: now,
     updatedAt: now,
-  };
+  });
 
-  let assetId: string;
+  insertHistory({
+    assetId,
+    type: 'Creation',
+    description: `Asset imported from spreadsheet (serial ${serial}).`,
+    timestamp: now,
+    performedBy: PERFORMED_BY,
+  });
 
-  if (existing) {
-    assetId = existing.id;
-    patchAsset(assetId, {
-      ...payload,
-      deviceId: existing.deviceId,
-      createdAt: existing.createdAt,
-    });
-  } else {
-    assetId = insertAsset({
-      ...payload,
-      deviceId: newDeviceId(),
-      createdAt: now,
-    });
-    insertHistory({
-      assetId,
-      type: 'Creation',
-      description: `Asset imported from spreadsheet (serial ${catalog.serialNumber}).`,
-      timestamp: now,
-      performedBy: PERFORMED_BY,
-    });
-  }
+  return finishAssetImportAssignment(assetId, catalog, assignKey, row.excelRow, warnings, true);
+}
+
+function finishAssetImportAssignment(
+  assetId: string,
+  catalog: ParsedAssetImportRow['catalog'],
+  assignKey: string,
+  excelRow: number,
+  warnings: string[],
+  created: boolean
+): { created: boolean; warnings: string[] } {
+  const now = Timestamp.now();
 
   if (assignKey) {
     const emp = findEmployeeForImportAssignee(assignKey);
     if (!emp) {
-      warnings.push(`Row ${row.excelRow}: no employee matched “${assignKey}” — asset saved without assignment.`);
+      warnings.push(`Row ${excelRow}: no employee matched “${assignKey}” — asset saved without assignment.`);
     } else {
       closeOpenAssignmentsForAsset(assetId, now);
       insertAssignment({
@@ -325,7 +542,7 @@ export function applyAssetImportRow(row: ParsedAssetImportRow): { created: boole
     reconcileAssetAssignmentState(assetId);
   }
 
-  return { created: !existing, warnings };
+  return { created, warnings };
 }
 
 export function applyAssetImportRows(rows: ParsedAssetImportRow[]): {
@@ -344,3 +561,12 @@ export function applyAssetImportRows(rows: ParsedAssetImportRow[]): {
   }
   return { created, updated, warnings };
 }
+
+function runStartupMigrations(): void {
+  if (typeof localStorage === 'undefined') return;
+  if (localStorage.getItem(DEDUP_MIGRATION_KEY)) return;
+  deduplicateEmployees();
+  localStorage.setItem(DEDUP_MIGRATION_KEY, '1');
+}
+
+runStartupMigrations();

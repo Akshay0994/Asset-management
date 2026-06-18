@@ -1,5 +1,4 @@
 {
   "name": "AssetTrack IT",
-  "description": "A comprehensive IT asset management system for tracking hardware, assignments, and lifecycle status.",
-  "requestFramePermissions": []
+  "description": "Local-first IT asset management for hardware inventory, employee assignments, and lifecycle tracking."
 }

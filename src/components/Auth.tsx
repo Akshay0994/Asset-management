@@ -3,11 +3,9 @@ import { UserProfile } from '../types';
 import { LogOut, Shield, ChevronDown } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
+import { ADMIN_PASSWORD, isAuthConfigured } from '../config';
 
 const SESSION_KEY = 'assettrack-it-auth';
-
-/** Password for local sign-in (no backend). */
-export const ADMIN_PASSWORD = 'admin';
 
 export type SessionUser = {
   uid: string;
@@ -60,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = useCallback((password: string) => {
-    if (password !== ADMIN_PASSWORD) return false;
+    if (!isAuthConfigured || password !== ADMIN_PASSWORD) return false;
     sessionStorage.setItem(SESSION_KEY, 'ok');
     setLoggedIn(true);
     return true;
@@ -121,17 +119,30 @@ export function LoginForm() {
           {error}
         </p>
       )}
+      {!isAuthConfigured && (
+        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2" role="alert">
+          Sign-in is not configured. Set <span className="font-mono">VITE_ADMIN_PASSWORD</span> before building for
+          production.
+        </p>
+      )}
       <motion.button
         type="submit"
-        whileHover={{ scale: 1.01 }}
-        whileTap={{ scale: 0.99 }}
-        className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-indigo-600 text-white rounded-xl font-semibold shadow-lg shadow-indigo-900/15 hover:bg-indigo-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+        disabled={!isAuthConfigured}
+        whileHover={isAuthConfigured ? { scale: 1.01 } : undefined}
+        whileTap={isAuthConfigured ? { scale: 0.99 } : undefined}
+        className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-indigo-600 text-white rounded-xl font-semibold shadow-lg shadow-indigo-900/15 hover:bg-indigo-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-indigo-600"
       >
         <Shield size={18} aria-hidden />
         Sign in
       </motion.button>
       <p className="text-xs text-slate-400 text-center leading-relaxed">
-        Local-only workspace. Data stays in this browser. Demo password is often <span className="font-mono text-slate-500">admin</span> unless changed in code.
+        Local-only workspace. Data stays in this browser.
+        {import.meta.env.DEV && (
+          <>
+            {' '}
+            Dev password: <span className="font-mono text-slate-500">admin</span>
+          </>
+        )}
       </p>
     </form>
   );

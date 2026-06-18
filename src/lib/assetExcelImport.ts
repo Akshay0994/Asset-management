@@ -25,6 +25,8 @@ export type ParsedAssetImportRow = {
   catalog: ParsedAssetCatalogRow;
   /** Employee number or email to assign after catalog upsert (optional). */
   assigneeEmployeeKey?: string;
+  /** Columns present on this row — used to merge updates without wiping blank cells. */
+  providedFields: HeaderField[];
 };
 
 export type AssetImportRowError = { excelRow: number; message: string };
@@ -35,6 +37,27 @@ function cellStr(v: unknown): string {
     return Number.isInteger(v) ? String(v) : String(v);
   }
   return String(v).trim();
+}
+
+/** Read hardware serials from Excel without scientific notation or float drift. */
+function serialCellStr(v: unknown): string {
+  if (v == null || v === '') return '';
+  if (typeof v === 'number' && Number.isFinite(v)) {
+    if (Number.isInteger(v)) return String(v);
+    const rounded = Math.round(v);
+    if (Math.abs(v - rounded) < 1e-6) return String(rounded);
+    return String(v);
+  }
+  const s = String(v).trim();
+  if (/^[\d.]+e[+-]?\d+$/i.test(s)) {
+    const n = Number(s);
+    if (Number.isFinite(n)) {
+      const rounded = Math.round(n);
+      if (Math.abs(n - rounded) < 1e-6) return String(rounded);
+      return String(n);
+    }
+  }
+  return s;
 }
 
 function normHeader(h: string): string {
@@ -67,6 +90,10 @@ const HEADER_TO_FIELD: Record<string, HeaderField | null> = {
   'serial number': 'serialNumber',
   'serialnumber': 'serialNumber',
   sn: 'serialNumber',
+  'serial no': 'serialNumber',
+  'serial #': 'serialNumber',
+  's n': 'serialNumber',
+  'hardware serial': 'serialNumber',
   'asset serial': 'serialNumber',
   'asset tag': 'serialNumber',
 
@@ -119,17 +146,35 @@ const HEADER_TO_FIELD: Record<string, HeaderField | null> = {
   'assignee email': 'assigneeEmployeeKey',
 };
 
-function mapRow(raw: Record<string, unknown>): Partial<Record<HeaderField, string>> {
-  const out: Partial<Record<HeaderField, string>> = {};
+function mapRow(raw: Record<string, unknown>): {
+  mapped: Partial<Record<HeaderField, string>>;
+  provided: Set<HeaderField>;
+} {
+  const mapped: Partial<Record<HeaderField, string>> = {};
+  const provided = new Set<HeaderField>();
   for (const [key, val] of Object.entries(raw)) {
     const nk = normHeader(key);
     const field = HEADER_TO_FIELD[nk];
     if (!field) continue;
-    const s = cellStr(val);
+    provided.add(field);
+    const s = field === 'serialNumber' ? serialCellStr(val) : cellStr(val);
     if (s === '') continue;
-    out[field] = s;
+    mapped[field] = s;
   }
-  return out;
+  return { mapped, provided };
+}
+
+function readSerialFromRow(
+  raw: Record<string, unknown>,
+  mapped: Partial<Record<HeaderField, string>>
+): string {
+  for (const [key, val] of Object.entries(raw)) {
+    const nk = normHeader(key);
+    if (HEADER_TO_FIELD[nk] !== 'serialNumber') continue;
+    const s = serialCellStr(val);
+    if (s) return s;
+  }
+  return serialCellStr(mapped.serialNumber ?? '');
 }
 
 /** Parse Excel-serial-ish days or ISO-like strings into Timestamp */
@@ -194,7 +239,7 @@ export function parseAssetExcelBuffer(buffer: ArrayBuffer): {
     });
     if (!hasAnyCell) return;
 
-    const m = mapRow(raw);
+    const { mapped: m, provided } = mapRow(raw);
 
     /** Raw cell fallbacks for date columns Excel left as serial numbers */
     const dateExtras: Partial<Record<'warrantyExpiry' | 'purchaseDate', Timestamp | undefined>> = {};
@@ -202,13 +247,14 @@ export function parseAssetExcelBuffer(buffer: ArrayBuffer): {
       const nk = normHeader(key);
       const f = HEADER_TO_FIELD[nk];
       if (!f || (f !== 'warrantyExpiry' && f !== 'purchaseDate')) continue;
+      provided.add(f);
       const ts = parseFlexibleDate(val);
       if (ts && !((f === 'warrantyExpiry' && m.warrantyExpiry) || (f === 'purchaseDate' && m.purchaseDate))) {
         dateExtras[f] = ts;
       }
     }
 
-    let serialRaw = (m.serialNumber ?? '').trim();
+    const serialRaw = readSerialFromRow(raw, m).trim();
     if (!serialRaw) {
       rowErrors.push({ excelRow, message: 'Serial Number is required for each asset row.' });
       return;
@@ -245,6 +291,7 @@ export function parseAssetExcelBuffer(buffer: ArrayBuffer): {
       excelRow,
       catalog,
       assigneeEmployeeKey: assignKey || undefined,
+      providedFields: [...provided],
     });
   });
 

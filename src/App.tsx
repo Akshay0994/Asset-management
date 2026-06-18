@@ -1,8 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useState, useContext, useCallback } from 'react';
 import { AuthProvider, AuthContext, LoginForm } from './components/Auth';
 import Layout from './components/Layout';

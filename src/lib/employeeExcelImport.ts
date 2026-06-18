@@ -127,6 +127,10 @@ export function parseEmployeeExcelBuffer(buffer: ArrayBuffer): {
       }
     }
 
+    if (!email && employeeNumber.includes('@')) {
+      email = employeeNumber;
+    }
+
     const nameFinal = nameVal || employeeNumber;
 
     rows.push({
