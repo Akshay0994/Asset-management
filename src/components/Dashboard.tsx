@@ -28,6 +28,8 @@ import {
 import { format, formatDistanceToNow, differenceInCalendarDays } from 'date-fns';
 import { motion } from 'motion/react';
 import { cn, sortHistoryNewestFirst } from '../lib/utils';
+import { downloadAssetsCsv } from '../lib/assetExcelImport';
+import { downloadEmployeesCsv } from '../lib/employeeExcelImport';
 
 const MS_DAY = 86_400_000;
 
@@ -49,32 +51,6 @@ function typeDistributionLabel(normalizedKey: string): string {
   if (!normalizedKey) return 'Unspecified type';
   if (normalizedKey === 'mouse') return 'Mice';
   return normalizedKey.replace(/\b\w/g, (ch) => ch.toUpperCase());
-}
-
-function exportToCSV(data: Record<string, unknown>[], filename: string) {
-  if (data.length === 0) return;
-
-  const headers = Object.keys(data[0])
-    .filter((k) => k !== 'id' && k !== 'createdAt' && k !== 'updatedAt')
-    .join(',');
-  const rows = data.map((obj) =>
-    Object.keys(obj)
-      .filter((k) => k !== 'id' && k !== 'createdAt' && k !== 'updatedAt')
-      .map((k) => {
-        let val = obj[k];
-        if (val && typeof val === 'object' && typeof (val as { toDate?: () => Date }).toDate === 'function') {
-          val = format((val as { toDate: () => Date }).toDate(), 'yyyy-MM-dd HH:mm:ss');
-        }
-        return typeof val === 'string' ? `"${val.replace(/"/g, '""')}"` : val;
-      })
-      .join(',')
-  );
-  const csv = [headers, ...rows].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = `${filename}_${format(new Date(), 'yyyy-MM-dd')}.csv`;
-  link.click();
 }
 
 function historyLabel(event: HistoryEvent): string {
@@ -347,12 +323,7 @@ export default function Dashboard({
           <div className="flex flex-wrap gap-2 md:justify-end">
             <button
               type="button"
-              onClick={() =>
-                exportToCSV(
-                  assets as unknown as Record<string, unknown>[],
-                  'asset_inventory'
-                )
-              }
+              onClick={() => downloadAssetsCsv(assets, employees)}
               className="inline-flex items-center gap-2 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
             >
               <ArrowUpRight size={16} />
@@ -360,15 +331,7 @@ export default function Dashboard({
             </button>
             <button
               type="button"
-              onClick={() =>
-                exportToCSV(
-                  employees.map((e) => ({
-                    ...(e as unknown as Record<string, unknown>),
-                    employeeType: e.employeeType ?? 'Regular',
-                  })),
-                  'employee_list'
-                )
-              }
+              onClick={() => downloadEmployeesCsv(employees)}
               className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-indigo-700 shadow-lg shadow-indigo-950/20 transition hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
             >
               Export team

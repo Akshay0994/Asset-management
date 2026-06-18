@@ -1,5 +1,17 @@
 import * as XLSX from 'xlsx';
-import type { EmployeeType, EmploymentStatus } from '../types';
+import { format } from 'date-fns';
+import type { EmployeeType, EmploymentStatus, Employee } from '../types';
+import { downloadCsvFile, rowsToCsv } from './csvExport';
+
+export const EMPLOYEE_IMPORT_HEADERS = [
+  'Name',
+  'Employee ID',
+  'Email',
+  'Department',
+  'Location',
+  'Employee Type',
+  'Status',
+] as const;
 
 export type ParsedEmployeeImportRow = {
   name: string;
@@ -147,9 +159,39 @@ export function parseEmployeeExcelBuffer(buffer: ArrayBuffer): {
   return { rows, rowErrors };
 }
 
+function isEmailLikeEmployeeId(value: string): boolean {
+  return value.trim().includes('@');
+}
+
+/** One data row in the same column order as the import template. */
+export function employeeToImportRow(employee: Employee): string[] {
+  const num = employee.employeeNumber.trim();
+  const email = (employee.email || '').trim();
+  const useEmailAsKey = !num || isEmailLikeEmployeeId(num);
+
+  return [
+    employee.name.trim(),
+    useEmailAsKey ? '' : num,
+    useEmailAsKey ? email || num : email,
+    employee.department?.trim() || '',
+    employee.location.trim(),
+    employee.employeeType ?? 'Regular',
+    employee.status,
+  ];
+}
+
+export function downloadEmployeesCsv(employees: Employee[], filenamePrefix = 'employee_list'): void {
+  if (employees.length === 0) return;
+  const csv = rowsToCsv(
+    [...EMPLOYEE_IMPORT_HEADERS],
+    employees.map(employeeToImportRow)
+  );
+  downloadCsvFile(csv, `${filenamePrefix}_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+}
+
 export function downloadEmployeeImportTemplate(): void {
   const ws = XLSX.utils.aoa_to_sheet([
-    ['Name', 'Employee ID', 'Email', 'Department', 'Location', 'Employee Type', 'Status'],
+    [...EMPLOYEE_IMPORT_HEADERS],
     [
       'Jane Doe',
       'EMP001',

@@ -1,7 +1,27 @@
 import * as XLSX from 'xlsx';
-import type { AssetStatus, WarrantyStatus } from '../types';
+import { format } from 'date-fns';
+import type { Asset, AssetStatus, Employee, WarrantyStatus } from '../types';
 import { Timestamp } from './timestamp';
 import { normalizeAssetTypeInput } from './utils';
+import { downloadCsvFile, rowsToCsv } from './csvExport';
+
+export const ASSET_IMPORT_HEADERS = [
+  'Serial Number',
+  'Asset Name',
+  'Model',
+  'Type',
+  'Location',
+  'Status',
+  'Warranty Status',
+  'Warranty Expiry',
+  'Purchase Date',
+  'RAM',
+  'Storage',
+  'Chip',
+  'Notes',
+  'Employee ID',
+  'Assignee Email',
+] as const;
 
 export type ParsedAssetCatalogRow = {
   serialNumber: string;
@@ -298,25 +318,67 @@ export function parseAssetExcelBuffer(buffer: ArrayBuffer): {
   return { rows, rowErrors };
 }
 
+function formatImportDate(ts: Timestamp | undefined): string {
+  if (!ts) return '';
+  return format(ts.toDate(), 'yyyy-MM-dd');
+}
+
+function assigneeExportColumns(
+  employee: Employee | undefined
+): { employeeId: string; assigneeEmail: string } {
+  if (!employee) return { employeeId: '', assigneeEmail: '' };
+
+  const num = employee.employeeNumber.trim();
+  const email = (employee.email || '').trim();
+
+  if (num && !num.includes('@')) {
+    return { employeeId: num, assigneeEmail: '' };
+  }
+
+  return { employeeId: '', assigneeEmail: email || num };
+}
+
+/** One data row in the same column order as the import template. */
+export function assetToImportRow(asset: Asset, employeesById: Map<string, Employee>): string[] {
+  const assignee = asset.assignedTo ? employeesById.get(asset.assignedTo) : undefined;
+  const { employeeId, assigneeEmail } = assigneeExportColumns(assignee);
+
+  return [
+    asset.serialNumber.trim(),
+    asset.name.trim(),
+    asset.model.trim(),
+    asset.type.trim(),
+    asset.location.trim(),
+    asset.status,
+    asset.warrantyStatus,
+    formatImportDate(asset.warrantyExpiry),
+    formatImportDate(asset.purchaseDate),
+    asset.ram?.trim() || '',
+    asset.storage?.trim() || '',
+    asset.chip?.trim() || '',
+    asset.notes?.trim() || '',
+    employeeId,
+    assigneeEmail,
+  ];
+}
+
+export function downloadAssetsCsv(
+  assets: Asset[],
+  employees: Employee[],
+  filenamePrefix = 'asset_inventory'
+): void {
+  if (assets.length === 0) return;
+  const employeesById = new Map(employees.map((e) => [e.id, e]));
+  const csv = rowsToCsv(
+    [...ASSET_IMPORT_HEADERS],
+    assets.map((a) => assetToImportRow(a, employeesById))
+  );
+  downloadCsvFile(csv, `${filenamePrefix}_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+}
+
 export function downloadAssetImportTemplate(): void {
   const ws = XLSX.utils.aoa_to_sheet([
-    [
-      'Serial Number',
-      'Asset Name',
-      'Model',
-      'Type',
-      'Location',
-      'Status',
-      'Warranty Status',
-      'Warranty Expiry',
-      'Purchase Date',
-      'RAM',
-      'Storage',
-      'Chip',
-      'Notes',
-      'Employee ID',
-      'Assignee Email',
-    ],
+    [...ASSET_IMPORT_HEADERS],
     [
       'ABC123XYZ',
       'MacBook Pro 16',
