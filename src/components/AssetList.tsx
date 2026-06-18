@@ -96,7 +96,6 @@ export default function AssetList({
   onEdit,
   onAssign,
   onView,
-  isAdmin,
   navigateFilters,
   onNavigateFiltersApplied,
   searchQuery,
@@ -105,7 +104,6 @@ export default function AssetList({
   onEdit: (asset: Asset) => void;
   onAssign: (asset: Asset) => void;
   onView: (asset: Asset) => void;
-  isAdmin: boolean;
   navigateFilters?: { token: number; filters: AssetListNavigateFilters } | null;
   onNavigateFiltersApplied?: () => void;
   searchQuery: string;
@@ -263,8 +261,7 @@ export default function AssetList({
             Manage your hardware inventory. Use the top bar to search by name, serial, or assignee.
           </p>
         </div>
-        {isAdmin && (
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => setImportExcelOpen(true)}
@@ -282,7 +279,6 @@ export default function AssetList({
               Add Asset
             </button>
           </div>
-        )}
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 custom-scrollbar border-b border-gray-100">
@@ -553,11 +549,10 @@ export default function AssetList({
                     >
                       {asset.status}
                     </span>
-                    {isAdmin && (
-                      <div
-                        className="relative"
-                        onClick={(e) => e.stopPropagation()}
-                      >
+                    <div
+                      className="relative"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                         <button
                           type="button"
                           aria-expanded={openMenuAssetId === asset.id}
@@ -614,7 +609,6 @@ export default function AssetList({
                           </div>
                         )}
                       </div>
-                    )}
                   </div>
                 </div>
 
@@ -635,7 +629,7 @@ export default function AssetList({
                         : 'Unassigned'}
                     </span>
                   </div>
-                  {isAdmin && (asset.status === 'Inventory' || asset.status === 'Assigned') && (
+                  {(asset.status === 'Inventory' || asset.status === 'Assigned') && (
                     <button
                       onClick={() => onAssign(asset)}
                       className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors"
@@ -716,7 +710,7 @@ export default function AssetList({
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center justify-end gap-1 sm:ml-auto">
-                  {isAdmin && (asset.status === 'Inventory' || asset.status === 'Assigned') && (
+                  {(asset.status === 'Inventory' || asset.status === 'Assigned') && (
                     <button
                       type="button"
                       onClick={() => onAssign(asset)}
@@ -730,8 +724,7 @@ export default function AssetList({
                       <UserPlus size={16} />
                     </button>
                   )}
-                  {isAdmin && (
-                    <div className="relative" onClick={(e) => e.stopPropagation()}>
+                  <div className="relative" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
                         aria-expanded={openMenuAssetId === asset.id}
@@ -783,7 +776,6 @@ export default function AssetList({
                         </div>
                       )}
                     </div>
-                  )}
                 </div>
               </motion.div>
             ))}

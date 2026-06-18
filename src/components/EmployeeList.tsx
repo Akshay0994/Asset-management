@@ -58,11 +58,9 @@ function resolveEmployeeType(emp: Employee): EmployeeType {
 }
 
 export default function EmployeeList({
-  isAdmin,
   onView,
   searchQuery,
 }: {
-  isAdmin: boolean;
   onView: (employee: Employee) => void;
   searchQuery: string;
 }) {
@@ -218,8 +216,7 @@ export default function EmployeeList({
             Manage staff and departments. Search from the top bar by name, email, employee ID, or department.
           </p>
         </div>
-        {isAdmin && (
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => setImportExcelOpen(true)}
@@ -240,7 +237,6 @@ export default function EmployeeList({
               Add Employee
             </button>
           </div>
-        )}
       </div>
 
       <div className="flex flex-col gap-4 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
@@ -413,8 +409,7 @@ export default function EmployeeList({
                     >
                       {emp.status}
                     </span>
-                    {isAdmin && (
-                      <div className="flex gap-1">
+                    <div className="flex gap-1">
                         <button
                           onClick={() => {
                             setEditingEmployee(emp);
@@ -431,7 +426,6 @@ export default function EmployeeList({
                           <Trash2 size={16} />
                         </button>
                       </div>
-                    )}
                   </div>
                 </div>
 
@@ -521,9 +515,8 @@ export default function EmployeeList({
                   >
                     <History size={16} />
                   </button>
-                  {isAdmin && (
-                    <>
-                      <button
+                  <>
+                    <button
                         type="button"
                         onClick={() => {
                           setEditingEmployee(emp);
@@ -543,7 +536,6 @@ export default function EmployeeList({
                         <Trash2 size={16} />
                       </button>
                     </>
-                  )}
                 </div>
               </motion.div>
             ))}

@@ -27,11 +27,9 @@ const TypeIcon = ({ type }: { type: string }) => {
 export default function EmployeeDetails({
   employee,
   onClose,
-  isAdmin = false,
 }: {
   employee: Employee;
   onClose: () => void;
-  isAdmin?: boolean;
 }) {
   const [history, setHistory] = useState<HistoryEvent[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -72,7 +70,6 @@ export default function EmployeeDetails({
   };
 
   const handleDeleteAssignment = (asgn: Assignment) => {
-    if (!isAdmin) return;
     const assetName = getAssetName(asgn.assetId);
     if (
       !window.confirm(
@@ -264,7 +261,7 @@ export default function EmployeeDetails({
                           <th className="px-4 py-3">Assigned</th>
                           <th className="px-4 py-3">Returned</th>
                           <th className="px-4 py-3">Condition</th>
-                          {isAdmin && <th className="px-4 py-3 w-14 text-right"> </th>}
+                          <th className="px-4 py-3 w-14 text-right"> </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-50">
@@ -299,26 +296,24 @@ export default function EmployeeDetails({
                                 {asgn.condition ?? '—'}
                               </span>
                             </td>
-                            {isAdmin && (
-                              <td className="px-4 py-3">
-                                <div className="flex justify-end">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteAssignment(asgn)}
-                                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                    title="Delete assignment"
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
-                                </div>
-                              </td>
-                            )}
+                            <td className="px-4 py-3">
+                              <div className="flex justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteAssignment(asgn)}
+                                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                  title="Delete assignment"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </td>
                           </tr>
                         ))}
                         {assignments.length === 0 && (
                           <tr>
                             <td
-                              colSpan={isAdmin ? 5 : 4}
+                              colSpan={5}
                               className="px-4 py-8 text-center text-gray-400 italic"
                             >
                               No assignments recorded.
@@ -339,7 +334,6 @@ export default function EmployeeDetails({
         <AssetDetails
           asset={assetDetail}
           onClose={() => setAssetDetail(null)}
-          isAdmin={isAdmin}
           nestedOverlay
         />
       )}

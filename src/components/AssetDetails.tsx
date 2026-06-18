@@ -11,13 +11,11 @@ import AssignmentEditForm from './AssignmentEditForm';
 export default function AssetDetails({
   asset,
   onClose,
-  isAdmin = false,
   /** When opened from another modal (e.g. employee details), stack above parent overlay. */
   nestedOverlay = false,
 }: {
   asset: Asset;
   onClose: () => void;
-  isAdmin?: boolean;
   nestedOverlay?: boolean;
 }) {
   const [resolvedAsset, setResolvedAsset] = useState<Asset>(asset);
@@ -56,7 +54,6 @@ export default function AssetDetails({
   const getEmployeeName = (id: string) => employees.find((e) => e.id === id)?.name || 'Unknown';
 
   const handleDeleteAssignment = (asgn: Assignment) => {
-    if (!isAdmin) return;
     const assigneeName = getEmployeeName(asgn.employeeId);
     if (
       !window.confirm(
@@ -311,7 +308,7 @@ export default function AssetDetails({
                           <th className="px-4 py-3">Returned</th>
                           <th className="px-4 py-3">Condition</th>
                           <th className="px-4 py-3 max-w-[200px]">Notes</th>
-                          {isAdmin && <th className="px-4 py-3 w-28 text-right">Actions</th>}
+                          <th className="px-4 py-3 w-28 text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-50">
@@ -344,9 +341,8 @@ export default function AssetDetails({
                                 <span className="text-gray-400">—</span>
                               )}
                             </td>
-                            {isAdmin && (
-                              <td className="px-4 py-3">
-                                <div className="flex items-center justify-end gap-1">
+                            <td className="px-4 py-3">
+                              <div className="flex items-center justify-end gap-1">
                                   <button
                                     type="button"
                                     onClick={() => setEditingAssignment(asgn)}
@@ -365,13 +361,12 @@ export default function AssetDetails({
                                   </button>
                                 </div>
                               </td>
-                            )}
                           </tr>
                         ))}
                         {assignments.length === 0 && (
                           <tr>
                             <td
-                              colSpan={isAdmin ? 6 : 5}
+                              colSpan={6}
                               className="px-4 py-8 text-center text-gray-400 italic"
                             >
                               No assignments recorded.
@@ -393,7 +388,6 @@ export default function AssetDetails({
           assignment={editingAssignment}
           asset={resolvedAsset}
           onClose={() => setEditingAssignment(null)}
-          isAdmin={isAdmin}
         />
       )}
     </div>

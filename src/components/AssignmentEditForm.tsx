@@ -18,12 +18,10 @@ export default function AssignmentEditForm({
   assignment,
   asset,
   onClose,
-  isAdmin = false,
 }: {
   assignment: Assignment;
   asset: Asset;
   onClose: () => void;
-  isAdmin?: boolean;
 }) {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(assignment.employeeId);
@@ -155,7 +153,6 @@ export default function AssignmentEditForm({
   };
 
   const handleDelete = () => {
-    if (!isAdmin) return;
     const assigneeName = employees.find((e) => e.id === assignment.employeeId)?.name || 'employee';
     if (
       !window.confirm(
@@ -316,8 +313,7 @@ export default function AssignmentEditForm({
             />
           </div>
 
-          {isAdmin && (
-            <div className="rounded-xl border border-red-100 bg-red-50/50 p-4">
+          <div className="rounded-xl border border-red-100 bg-red-50/50 p-4">
               <p className="mb-2 text-xs text-red-800/90">
                 Removed rows cannot be restored. Use this if the record was added by mistake.
               </p>
@@ -331,7 +327,6 @@ export default function AssignmentEditForm({
                 Delete assignment
               </button>
             </div>
-          )}
 
           <div className="pt-2 flex gap-3">
             <button

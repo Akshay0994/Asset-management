@@ -1,6 +1,5 @@
 import React from 'react';
 import { LayoutDashboard, Package, Users, Bell, Search, Menu, X } from 'lucide-react';
-import { UserMenu } from './Auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 
@@ -118,8 +117,6 @@ export default function Layout({
                   aria-hidden
                 />
               </button>
-              <div className="hidden h-8 w-px bg-gray-200 sm:block" aria-hidden />
-              <UserMenu />
             </div>
           </div>
         </header>
