@@ -27,6 +27,7 @@ import AssetExcelImportDialog from './AssetExcelImportDialog';
 import BulkSelectionBar from './BulkSelectionBar';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
+import { iconSize } from '../lib/icons';
 
 function assetMatchesWarrantyFilter(asset: Asset, filterWarranty: string): boolean {
   if (filterWarranty === 'all') return true;
@@ -77,19 +78,20 @@ function typeTabLabel(normalizedKey: string): string {
   return normalizedKey.replace(/\b\w/g, (ch) => ch.toUpperCase());
 }
 
-const TypeIcon = ({ type }: { type: string }) => {
+const TypeIcon = ({ type, className }: { type: string; className?: string }) => {
   const t = (type || '').trim().toLowerCase();
+  const props = { className: cn(iconSize.sm, className) };
   switch (t) {
     case 'laptop':
-      return <Laptop size={16} />;
+      return <Laptop {...props} />;
     case 'monitor':
-      return <Monitor size={16} />;
+      return <Monitor {...props} />;
     case 'keyboard':
-      return <Keyboard size={16} />;
+      return <Keyboard {...props} />;
     case 'mouse':
-      return <Mouse size={16} />;
+      return <Mouse {...props} />;
     default:
-      return <Package size={16} />;
+      return <Package {...props} />;
   }
 };
 
@@ -312,28 +314,28 @@ export default function AssetList({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Assets</h2>
           <p className="text-gray-500 text-sm">
             Manage your hardware inventory. Use the top bar to search by name, serial, or assignee.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="icon-toolbar">
             <button
               type="button"
               onClick={() => setImportExcelOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-800 rounded-xl font-medium hover:bg-gray-50 transition-colors shadow-sm"
+              className="flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 bg-white border border-gray-200 text-gray-800 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm"
             >
-              <FileSpreadsheet size={20} />
+              <FileSpreadsheet className={iconSize.md} />
               Import Excel
             </button>
             <button
               type="button"
               onClick={() => onEdit({} as Asset)}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors shadow-sm"
+              className="flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm"
             >
-              <Plus size={20} />
+              <Plus className={iconSize.md} />
               Add Asset
             </button>
           </div>
@@ -350,7 +352,7 @@ export default function AssetList({
               : 'border-transparent bg-gray-50 text-gray-600 hover:bg-gray-100'
           )}
         >
-          <Package size={16} className="shrink-0 opacity-80" />
+          <Package className={cn(iconSize.sm, "opacity-80")} />
           All types
           <span
             className={cn(
@@ -452,7 +454,7 @@ export default function AssetList({
             </select>
           </div>
           <div
-            className="flex shrink-0 items-center gap-0.5 rounded-xl border border-gray-200 bg-gray-50 p-0.5"
+            className="icon-view-toggle"
             role="group"
             aria-label="View as grid or list"
           >
@@ -462,13 +464,12 @@ export default function AssetList({
               aria-pressed={viewMode === 'grid'}
               title="Grid view"
               className={cn(
-                'rounded-lg p-2 transition-all',
                 viewMode === 'grid'
                   ? 'bg-white text-indigo-600 shadow-sm'
                   : 'text-gray-500 hover:text-gray-800'
               )}
             >
-              <LayoutGrid size={18} aria-hidden />
+              <LayoutGrid className={iconSize.lg} aria-hidden />
               <span className="sr-only">Grid view</span>
             </button>
             <button
@@ -477,13 +478,12 @@ export default function AssetList({
               aria-pressed={viewMode === 'list'}
               title="List view"
               className={cn(
-                'rounded-lg p-2 transition-all',
                 viewMode === 'list'
                   ? 'bg-white text-indigo-600 shadow-sm'
                   : 'text-gray-500 hover:text-gray-800'
               )}
             >
-              <List size={18} aria-hidden />
+              <List className={iconSize.lg} aria-hidden />
               <span className="sr-only">List view</span>
             </button>
           </div>
@@ -617,7 +617,7 @@ export default function AssetList({
                     <TypeIcon type={asset.type} />
                   </div>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="icon-actions">
                     <span
                       className={cn(
                         'text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full',
@@ -651,7 +651,7 @@ export default function AssetList({
                             )
                           }
                         >
-                          <MoreVertical size={16} />
+                          <MoreVertical className={iconSize.sm} />
                         </button>
                         {openMenuAssetId === asset.id && (
                           <div
@@ -668,7 +668,7 @@ export default function AssetList({
                                 }}
                                 className="w-full px-4 py-2 text-left text-xs hover:bg-gray-50 flex items-center gap-2"
                               >
-                                <History size={14} /> Details
+                                <History className={iconSize.xs} /> Details
                               </button>
                               <button
                                 type="button"
@@ -679,7 +679,7 @@ export default function AssetList({
                                 }}
                                 className="w-full px-4 py-2 text-left text-xs hover:bg-gray-50 flex items-center gap-2"
                               >
-                                <Edit size={14} /> Edit
+                                <Edit className={iconSize.xs} /> Edit
                               </button>
                               <button
                                 type="button"
@@ -690,7 +690,7 @@ export default function AssetList({
                                 }}
                                 className="w-full px-4 py-2 text-left text-xs hover:bg-red-50 text-red-600 flex items-center gap-2"
                               >
-                                <Trash2 size={14} /> Delete
+                                <Trash2 className={iconSize.xs} /> Delete
                               </button>
                             </div>
                           </div>
@@ -726,7 +726,7 @@ export default function AssetList({
                           : 'Assign or return (check out)'
                       }
                     >
-                      <UserPlus size={16} />
+                      <UserPlus className={iconSize.sm} />
                     </button>
                   )}
                 </div>
@@ -808,7 +808,7 @@ export default function AssetList({
                       : 'Unassigned'}
                   </p>
                 </div>
-                <div className="flex shrink-0 items-center justify-end gap-1 sm:ml-auto">
+                <div className="icon-actions shrink-0 sm:ml-auto">
                   {(asset.status === 'Inventory' || asset.status === 'Assigned') && (
                     <button
                       type="button"
@@ -820,7 +820,7 @@ export default function AssetList({
                           : 'Assign or return (check out)'
                       }
                     >
-                      <UserPlus size={16} />
+                      <UserPlus className={iconSize.sm} />
                     </button>
                   )}
                   <div className="relative" onClick={(e) => e.stopPropagation()}>
@@ -833,7 +833,7 @@ export default function AssetList({
                           setOpenMenuAssetId((id) => (id === asset.id ? null : asset.id))
                         }
                       >
-                        <MoreVertical size={16} />
+                        <MoreVertical className={iconSize.sm} />
                       </button>
                       {openMenuAssetId === asset.id && (
                         <div role="menu" className="absolute right-0 top-full z-20 w-36 pt-1">
@@ -847,7 +847,7 @@ export default function AssetList({
                               }}
                               className="flex w-full items-center gap-2 px-4 py-2 text-left text-xs hover:bg-gray-50"
                             >
-                              <History size={14} /> Details
+                              <History className={iconSize.xs} /> Details
                             </button>
                             <button
                               type="button"
@@ -858,7 +858,7 @@ export default function AssetList({
                               }}
                               className="flex w-full items-center gap-2 px-4 py-2 text-left text-xs hover:bg-gray-50"
                             >
-                              <Edit size={14} /> Edit
+                              <Edit className={iconSize.xs} /> Edit
                             </button>
                             <button
                               type="button"
@@ -869,7 +869,7 @@ export default function AssetList({
                               }}
                               className="flex w-full items-center gap-2 px-4 py-2 text-left text-xs text-red-600 hover:bg-red-50"
                             >
-                              <Trash2 size={14} /> Delete
+                              <Trash2 className={iconSize.xs} /> Delete
                             </button>
                           </div>
                         </div>
@@ -884,7 +884,7 @@ export default function AssetList({
 
       {filteredAssets.length === 0 && (
         <div className="text-center py-20 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
-          <Package size={48} className="mx-auto text-gray-300 mb-4" />
+          <Package className={cn(iconSize.display, "mx-auto text-gray-300 mb-4")} />
           <h3 className="text-lg font-medium text-gray-900">No assets found</h3>
           <p className="text-gray-500">Try adjusting your search or filters</p>
         </div>

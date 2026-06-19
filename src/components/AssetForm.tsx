@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { iconSize } from '../lib/icons';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -208,7 +209,7 @@ export default function AssetForm({
             {asset.deviceId && <p className="text-xs text-indigo-600 font-mono">{asset.deviceId}</p>}
           </div>
           <button type="button" onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
-            <X size={20} />
+            <X className={iconSize.md} />
           </button>
         </div>
 
@@ -225,7 +226,7 @@ export default function AssetForm({
               )}
             >
               <span className="inline-flex items-center justify-center gap-2">
-                <Package size={16} />
+                <Package className={iconSize.sm} />
                 Details
               </span>
             </button>
@@ -240,7 +241,7 @@ export default function AssetForm({
               )}
             >
               <span className="inline-flex items-center justify-center gap-2">
-                <UserPlus size={16} />
+                <UserPlus className={iconSize.sm} />
                 Assignment
                 {assignEmployeeId && (
                   <span className="rounded-full bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white leading-none">
@@ -424,7 +425,7 @@ export default function AssetForm({
                       : 'text-gray-500 hover:text-gray-800'
                   )}
                 >
-                  <UserPlus size={16} />
+                  <UserPlus className={iconSize.sm} />
                   Assign to employees
                 </button>
                 <button
@@ -437,7 +438,7 @@ export default function AssetForm({
                       : 'text-gray-500 hover:text-gray-800'
                   )}
                 >
-                  <RotateCcw size={16} />
+                  <RotateCcw className={iconSize.sm} />
                   Return
                 </button>
               </div>
@@ -457,7 +458,7 @@ export default function AssetForm({
                   Select employee (all statuses)
                 </label>
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                  <Search className={cn('absolute left-3 top-1/2 -translate-y-1/2 text-gray-400', iconSize.sm)} />
                   <input
                     type="text"
                     placeholder="Search employees..."
@@ -570,7 +571,7 @@ export default function AssetForm({
               disabled={isSubmitting}
               className="flex-1 px-4 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <Save size={20} />
+              <Save className={iconSize.md} />
               {isSubmitting ? 'Saving...' : !isEditing && assignEmployeeId ? 'Save & assign' : 'Save Asset'}
             </button>
           </div>

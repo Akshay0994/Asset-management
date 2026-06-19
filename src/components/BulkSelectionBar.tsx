@@ -1,4 +1,5 @@
 import { Trash2 } from 'lucide-react';
+import { iconSize } from '../lib/icons';
 
 export default function BulkSelectionBar({
   filteredCount,
@@ -39,7 +40,7 @@ export default function BulkSelectionBar({
             onClick={onBulkDelete}
             className="inline-flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-sm font-bold text-red-700 transition-colors hover:bg-red-100"
           >
-            <Trash2 size={16} aria-hidden />
+            <Trash2 className={iconSize.sm} aria-hidden />
             Delete selected
           </button>
           <button

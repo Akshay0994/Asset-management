@@ -28,6 +28,7 @@ import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { cn } from '../lib/utils';
+import { iconSize } from '../lib/icons';
 
 const DEPT_EMPTY = '__empty__';
 const MS_DAY = 86_400_000;
@@ -269,20 +270,20 @@ export default function EmployeeList({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Employees</h2>
           <p className="text-gray-500 text-sm">
             Manage staff and departments. Search from the top bar by name, email, employee ID, or department.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="icon-toolbar">
             <button
               type="button"
               onClick={() => setImportExcelOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-800 rounded-xl font-medium hover:bg-gray-50 transition-colors shadow-sm"
+              className="flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 bg-white border border-gray-200 text-gray-800 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm"
             >
-              <FileSpreadsheet size={20} />
+              <FileSpreadsheet className={iconSize.md} />
               Import Excel
             </button>
             <button
@@ -291,9 +292,9 @@ export default function EmployeeList({
                 setIsFormOpen(true);
                 setEditingEmployee(null);
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors shadow-sm"
+              className="flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm"
             >
-              <Plus size={20} />
+              <Plus className={iconSize.md} />
               Add Employee
             </button>
           </div>
@@ -336,7 +337,7 @@ export default function EmployeeList({
             </select>
           </div>
           <div
-            className="flex shrink-0 items-center gap-0.5 rounded-xl border border-gray-200 bg-gray-50 p-0.5"
+            className="icon-view-toggle"
             role="group"
             aria-label="View as grid or list"
           >
@@ -346,13 +347,12 @@ export default function EmployeeList({
               aria-pressed={viewMode === 'grid'}
               title="Grid view"
               className={cn(
-                'rounded-lg p-2 transition-all',
                 viewMode === 'grid'
                   ? 'bg-white text-indigo-600 shadow-sm'
                   : 'text-gray-500 hover:text-gray-800'
               )}
             >
-              <LayoutGrid size={18} aria-hidden />
+              <LayoutGrid className={iconSize.lg} aria-hidden />
               <span className="sr-only">Grid view</span>
             </button>
             <button
@@ -361,13 +361,12 @@ export default function EmployeeList({
               aria-pressed={viewMode === 'list'}
               title="List view"
               className={cn(
-                'rounded-lg p-2 transition-all',
                 viewMode === 'list'
                   ? 'bg-white text-indigo-600 shadow-sm'
                   : 'text-gray-500 hover:text-gray-800'
               )}
             >
-              <List size={18} aria-hidden />
+              <List className={iconSize.lg} aria-hidden />
               <span className="sr-only">List view</span>
             </button>
           </div>
@@ -462,16 +461,16 @@ export default function EmployeeList({
                       />
                     </label>
                     <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
-                      <Users size={24} />
+                      <Users className={iconSize.hero} />
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="icon-actions">
                     <button
                       onClick={() => onView(emp)}
                       className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                       title="View Details"
                     >
-                      <History size={16} />
+                      <History className={iconSize.sm} />
                     </button>
                     <span
                       className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full ${
@@ -495,7 +494,7 @@ export default function EmployeeList({
                     >
                       {emp.status}
                     </span>
-                    <div className="flex gap-1">
+                    <div className="icon-actions">
                         <button
                           onClick={() => {
                             setEditingEmployee(emp);
@@ -503,13 +502,13 @@ export default function EmployeeList({
                           }}
                           className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                         >
-                          <Edit size={16} />
+                          <Edit className={iconSize.sm} />
                         </button>
                         <button
                           onClick={() => handleDelete(emp.id)}
                           className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         >
-                          <Trash2 size={16} />
+                          <Trash2 className={iconSize.sm} />
                         </button>
                       </div>
                   </div>
@@ -522,11 +521,11 @@ export default function EmployeeList({
                   </div>
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <Mail size={14} />
+                      <Mail className={iconSize.xs} />
                       <span className="truncate">{emp.email}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <Building size={14} />
+                      <Building className={iconSize.xs} />
                       <span>
                         {emp.department || 'General'} • {emp.location}
                       </span>
@@ -562,7 +561,7 @@ export default function EmployeeList({
                   />
                 </label>
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
-                  <Users size={22} />
+                  <Users className={iconSize.tile} />
                 </div>
                 <div className="min-w-0 flex-1">
                   <h3 className="truncate font-bold text-gray-900">{emp.name || 'Unnamed'}</h3>
@@ -570,17 +569,17 @@ export default function EmployeeList({
                 </div>
                 <div className="min-w-0 flex-1 sm:max-w-[220px]">
                   <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Mail size={14} className="shrink-0 text-gray-400" />
+                    <Mail className={cn(iconSize.xs, "shrink-0 text-gray-400")} />
                     <span className="truncate">{emp.email || '—'}</span>
                   </div>
                   <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
-                    <Building size={12} className="shrink-0 text-gray-400" />
+                    <Building className={cn(iconSize.xs, "shrink-0 text-gray-400")} />
                     <span className="truncate">
                       {emp.department || 'General'} • {emp.location || '—'}
                     </span>
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+                <div className="icon-actions sm:shrink-0">
                   <span
                     className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full ${
                       resolveEmployeeType(emp) === 'Regular'
@@ -611,7 +610,7 @@ export default function EmployeeList({
                     className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
                     title="View Details"
                   >
-                    <History size={16} />
+                    <History className={iconSize.sm} />
                   </button>
                   <>
                     <button
@@ -623,7 +622,7 @@ export default function EmployeeList({
                         className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
                         title="Edit"
                       >
-                        <Edit size={16} />
+                        <Edit className={iconSize.sm} />
                       </button>
                       <button
                         type="button"
@@ -631,7 +630,7 @@ export default function EmployeeList({
                         className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
                         title="Delete"
                       >
-                        <Trash2 size={16} />
+                        <Trash2 className={iconSize.sm} />
                       </button>
                     </>
                 </div>

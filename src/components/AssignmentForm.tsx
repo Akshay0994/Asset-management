@@ -13,6 +13,7 @@ import { X, UserPlus, Search, RotateCcw } from 'lucide-react';
 import { motion } from 'motion/react';
 import { format } from 'date-fns';
 import { cn } from '../lib/utils';
+import { iconSize } from '../lib/icons';
 
 type AssignTab = 'assign' | 'return';
 
@@ -180,7 +181,7 @@ export default function AssignmentForm({
         disabled && 'cursor-not-allowed opacity-45 hover:text-gray-500'
       )}
     >
-      <Icon size={18} />
+      <Icon className={iconSize.lg} />
       {label}
     </button>
   );
@@ -198,7 +199,7 @@ export default function AssignmentForm({
             <p className="text-xs font-medium text-indigo-600">{asset.name || 'Untitled asset'}</p>
           </div>
           <button type="button" onClick={onClose} className="rounded-full p-2 transition-colors hover:bg-gray-200">
-            <X size={20} />
+            <X className={iconSize.md} />
           </button>
         </div>
 
@@ -221,7 +222,7 @@ export default function AssignmentForm({
                 Select employee (all statuses)
               </label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
+                <Search className={cn('absolute left-3 top-1/2 -translate-y-1/2 text-gray-400', iconSize.sm)} />
                 <input
                   type="text"
                   placeholder="Search employees..."
@@ -320,7 +321,7 @@ export default function AssignmentForm({
                 disabled={!selectedEmployeeId || isSubmitting}
                 className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 font-bold text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
               >
-                <UserPlus size={20} />
+                <UserPlus className={iconSize.md} />
                 {isSubmitting ? 'Saving…' : 'Confirm assignment'}
               </button>
             </div>
@@ -373,7 +374,7 @@ export default function AssignmentForm({
                     disabled={isSubmitting}
                     className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-3 font-bold text-white transition-colors hover:bg-sky-700 disabled:opacity-50"
                   >
-                    <RotateCcw size={20} />
+                    <RotateCcw className={iconSize.md} />
                     {isSubmitting ? 'Recording…' : 'Confirm return'}
                   </button>
                 </div>

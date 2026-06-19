@@ -2,6 +2,7 @@ import React from 'react';
 import { LayoutDashboard, Package, Users, Bell, Search, Menu, X, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
+import { iconSize } from '../lib/icons';
 
 export default function Layout({
   children,
@@ -31,8 +32,8 @@ export default function Layout({
       {/* Sidebar - Desktop */}
       <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-gray-200 p-6 fixed h-full">
         <div className="flex items-center gap-3 mb-10 px-2">
-          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
-            <Package size={24} />
+          <div className="w-10 h-10 sm:w-11 sm:h-11 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
+            <Package className={iconSize.hero} />
           </div>
           <span className="text-xl font-bold text-gray-900 tracking-tight">AssetTrack IT</span>
         </div>
@@ -49,7 +50,7 @@ export default function Layout({
                   : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
               )}
             >
-              <item.icon size={20} />
+              <item.icon className={iconSize.nav} />
               {item.label}
             </button>
           ))}
@@ -76,14 +77,14 @@ export default function Layout({
         </a>
         {/* Header */}
         <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/95 backdrop-blur-md supports-[backdrop-filter]:bg-white/80">
-          <div className="flex h-16 items-center gap-3 px-4 sm:h-20 sm:gap-4 sm:px-6">
+          <div className="flex h-14 sm:h-16 md:h-20 items-center gap-2 px-3 sm:gap-3 sm:px-4 md:px-6">
             <button
               type="button"
               className="shrink-0 rounded-xl p-2 text-gray-500 hover:bg-gray-100 lg:hidden"
               onClick={() => setIsMobileMenuOpen(true)}
               aria-label="Open navigation menu"
             >
-              <Menu size={22} />
+              <Menu className={iconSize.lg} />
             </button>
 
             {activeTab !== 'dashboard' && (
@@ -93,15 +94,14 @@ export default function Layout({
                 className="flex shrink-0 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-2.5 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 sm:gap-2 sm:px-3"
                 aria-label="Back to dashboard"
               >
-                <ArrowLeft size={18} aria-hidden />
+                <ArrowLeft className={iconSize.lg} aria-hidden />
                 <span className="hidden sm:inline">Dashboard</span>
               </button>
             )}
 
             <div className="relative min-w-0 flex-1 sm:max-w-md">
               <Search
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                size={18}
+                className={cn('pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400', iconSize.md)}
                 aria-hidden
               />
               <input
@@ -115,15 +115,15 @@ export default function Layout({
               />
             </div>
 
-            <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+            <div className="icon-toolbar shrink-0">
               <button
                 type="button"
-                className="relative rounded-xl p-2 text-gray-400 opacity-70 hover:bg-gray-50 hover:opacity-100"
+                className="relative rounded-xl p-1.5 sm:p-2 text-gray-400 opacity-70 hover:bg-gray-50 hover:opacity-100"
                 title="Notifications (optional — not configured in this build)"
                 aria-label="Notifications. Not configured in this local build."
                 onClick={(e) => e.preventDefault()}
               >
-                <Bell size={20} />
+                <Bell className={iconSize.md} />
                 <span
                   className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full border-2 border-white bg-amber-400"
                   aria-hidden
@@ -169,13 +169,13 @@ export default function Layout({
             >
               <div className="flex items-center justify-between mb-10">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white">
-                    <Package size={24} />
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 bg-indigo-600 rounded-xl flex items-center justify-center text-white">
+                    <Package className={iconSize.hero} />
                   </div>
                   <span className="text-xl font-bold text-gray-900 tracking-tight">AssetTrack IT</span>
                 </div>
                 <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-gray-400 hover:bg-gray-100 rounded-xl">
-                  <X size={24} />
+                  <X className={iconSize.hero} />
                 </button>
               </div>
 
@@ -191,7 +191,7 @@ export default function Layout({
                         : "text-gray-500 hover:bg-gray-50"
                     )}
                   >
-                    <item.icon size={20} />
+                    <item.icon className={iconSize.nav} />
                     {item.label}
                   </button>
                 ))}

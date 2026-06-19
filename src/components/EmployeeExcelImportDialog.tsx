@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { iconSize } from '../lib/icons';
 import { motion } from 'motion/react';
 import { X, FileSpreadsheet, Download } from 'lucide-react';
 import { upsertEmployeeByEmployeeNumber } from '../data/localStore';
@@ -68,7 +69,7 @@ export default function EmployeeExcelImportDialog({
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex items-center gap-3">
             <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600">
-              <FileSpreadsheet size={24} />
+              <FileSpreadsheet className={iconSize.hero} />
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-900">Import employees from Excel</h2>
@@ -83,7 +84,7 @@ export default function EmployeeExcelImportDialog({
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors shrink-0"
           >
-            <X size={20} />
+            <X className={iconSize.md} />
           </button>
         </div>
 
@@ -103,7 +104,7 @@ export default function EmployeeExcelImportDialog({
             }}
             className="inline-flex items-center gap-2 text-indigo-600 font-semibold hover:text-indigo-700"
           >
-            <Download size={16} />
+            <Download className={iconSize.sm} />
             Download example template
           </button>
         </div>

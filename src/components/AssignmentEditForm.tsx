@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { iconSize } from '../lib/icons';
 import {
   subscribe,
   getState,
@@ -13,6 +14,7 @@ import { Asset, Assignment, Employee } from '../types';
 import { X, Save, Search, Trash2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { format } from 'date-fns';
+import { cn } from '../lib/utils';
 
 export default function AssignmentEditForm({
   assignment,
@@ -194,7 +196,7 @@ export default function AssignmentEditForm({
             <p className="text-xs text-indigo-600 font-medium">{asset.name || 'Untitled asset'}</p>
           </div>
           <button type="button" onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
-            <X size={20} />
+            <X className={iconSize.md} />
           </button>
         </div>
 
@@ -204,7 +206,7 @@ export default function AssignmentEditForm({
               Employee (all statuses)
             </label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+              <Search className={cn('absolute left-3 top-1/2 -translate-y-1/2 text-gray-400', iconSize.sm)} />
               <input
                 type="text"
                 placeholder="Search employees..."
@@ -323,7 +325,7 @@ export default function AssignmentEditForm({
                 disabled={isSubmitting}
                 className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-bold text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50"
               >
-                <Trash2 size={18} />
+                <Trash2 className={iconSize.lg} />
                 Delete assignment
               </button>
             </div>
@@ -341,7 +343,7 @@ export default function AssignmentEditForm({
               disabled={!selectedEmployeeId || isSubmitting}
               className="flex-1 px-4 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <Save size={20} />
+              <Save className={iconSize.md} />
               {isSubmitting ? 'Saving...' : 'Save changes'}
             </button>
           </div>

@@ -6,6 +6,7 @@ import { X, History, User, Calendar, Shield, Tag, Info, Pencil, StickyNote, Tras
 import { motion } from 'motion/react';
 import { format } from 'date-fns';
 import { cn, sortHistoryNewestFirst } from '../lib/utils';
+import { iconSize } from '../lib/icons';
 import AssignmentEditForm from './AssignmentEditForm';
 
 export default function AssetDetails({
@@ -110,7 +111,7 @@ export default function AssetDetails({
         <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white">
-              <Tag size={24} />
+              <Tag className={iconSize.hero} />
             </div>
             <div>
               <h2 className="text-2xl font-bold text-gray-900">{resolvedAsset.name || 'Untitled asset'}</h2>
@@ -120,7 +121,7 @@ export default function AssetDetails({
             </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
-            <X size={24} />
+            <X className={iconSize.hero} />
           </button>
         </div>
 
@@ -132,7 +133,7 @@ export default function AssetDetails({
               <div className="space-y-6">
                 <section>
                   <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <Info size={14} /> Device Info
+                    <Info className={iconSize.xs} /> Device Info
                   </h3>
                   <div className="bg-gray-50 rounded-2xl p-4 space-y-3">
                     <div className="flex justify-between text-sm">
@@ -182,7 +183,7 @@ export default function AssetDetails({
                     {resolvedAsset.notes?.trim() && (
                       <div className="pt-3 border-t border-gray-200/80">
                         <span className="text-gray-500 text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5 mb-2">
-                          <StickyNote size={12} aria-hidden /> Notes
+                          <StickyNote className={iconSize.xs} aria-hidden /> Notes
                         </span>
                         <p className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">
                           {resolvedAsset.notes.trim()}
@@ -194,7 +195,7 @@ export default function AssetDetails({
 
                 <section>
                   <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <Shield size={14} /> Warranty & AppleCare
+                    <Shield className={iconSize.xs} /> Warranty & AppleCare
                   </h3>
                   <div className="bg-gray-50 rounded-2xl p-4 space-y-3">
                     <div className="flex justify-between text-sm">
@@ -219,7 +220,7 @@ export default function AssetDetails({
                 {resolvedAsset.assignedTo && (
                   <section>
                     <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                      <User size={14} /> Currently Assigned
+                      <User className={iconSize.xs} /> Currently Assigned
                     </h3>
                     <div className="bg-indigo-50 rounded-2xl p-4 space-y-2">
                       <p className="font-bold text-indigo-900">{getEmployeeName(resolvedAsset.assignedTo)}</p>
@@ -240,7 +241,7 @@ export default function AssetDetails({
               <div className="lg:col-span-2 space-y-8">
                 <section>
                   <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <History size={14} /> Lifecycle History
+                    <History className={iconSize.xs} /> Lifecycle History
                   </h3>
                   <div className="space-y-4">
                     {history.length === 0 ? (
@@ -297,7 +298,7 @@ export default function AssetDetails({
 
                 <section>
                   <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <Calendar size={14} /> Assignment Logs
+                    <Calendar className={iconSize.xs} /> Assignment Logs
                   </h3>
                   <div className="overflow-hidden rounded-2xl border border-gray-100">
                     <table className="w-full text-left text-sm">
@@ -349,7 +350,7 @@ export default function AssetDetails({
                                     className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                                     title="Edit assignment"
                                   >
-                                    <Pencil size={16} />
+                                    <Pencil className={iconSize.sm} />
                                   </button>
                                   <button
                                     type="button"
@@ -357,7 +358,7 @@ export default function AssetDetails({
                                     className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                     title="Delete assignment"
                                   >
-                                    <Trash2 size={16} />
+                                    <Trash2 className={iconSize.sm} />
                                   </button>
                                 </div>
                               </td>

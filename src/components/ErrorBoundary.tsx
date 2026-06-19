@@ -1,4 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { iconSize } from '../lib/icons';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface Props {
@@ -44,7 +45,7 @@ export default class ErrorBoundary extends Component<Props, State> {
         <div className="min-h-screen bg-canvas flex items-center justify-center p-4">
           <div className="bg-white p-8 rounded-3xl shadow-xl border border-gray-100 max-w-md w-full text-center space-y-6">
             <div className="w-16 h-16 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center mx-auto">
-              <AlertTriangle size={32} />
+              <AlertTriangle className={iconSize.hero} />
             </div>
             <div>
               <h2 className="text-2xl font-bold text-gray-900">Something went wrong</h2>
@@ -55,7 +56,7 @@ export default class ErrorBoundary extends Component<Props, State> {
               onClick={() => window.location.reload()}
               className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-100"
             >
-              <RefreshCw size={20} />
+              <RefreshCw className={iconSize.md} />
               Reload application
             </button>
           </div>

@@ -6,21 +6,22 @@ import { X, History, User, Calendar, Tag, Info, Laptop, Monitor, Keyboard, Mouse
 import { motion } from 'motion/react';
 import { format } from 'date-fns';
 import { cn, sortHistoryNewestFirst } from '../lib/utils';
+import { iconSize } from '../lib/icons';
 import AssetDetails from './AssetDetails';
 
 const TypeIcon = ({ type }: { type: string }) => {
   const t = (type || '').trim().toLowerCase();
   switch (t) {
     case 'laptop':
-      return <Laptop size={16} />;
+      return <Laptop className={iconSize.sm} />;
     case 'monitor':
-      return <Monitor size={16} />;
+      return <Monitor className={iconSize.sm} />;
     case 'keyboard':
-      return <Keyboard size={16} />;
+      return <Keyboard className={iconSize.sm} />;
     case 'mouse':
-      return <Mouse size={16} />;
+      return <Mouse className={iconSize.sm} />;
     default:
-      return <Package size={16} />;
+      return <Package className={iconSize.sm} />;
   }
 };
 
@@ -101,7 +102,7 @@ export default function EmployeeDetails({
         <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white">
-              <User size={24} />
+              <User className={iconSize.hero} />
             </div>
             <div>
               <h2 className="text-2xl font-bold text-gray-900">{employee.name || 'Unnamed'}</h2>
@@ -111,7 +112,7 @@ export default function EmployeeDetails({
             </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
-            <X size={24} />
+            <X className={iconSize.hero} />
           </button>
         </div>
 
@@ -123,7 +124,7 @@ export default function EmployeeDetails({
               <div className="space-y-6">
                 <section>
                   <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <Info size={14} /> Profile Info
+                    <Info className={iconSize.xs} /> Profile Info
                   </h3>
                   <div className="bg-gray-50 rounded-2xl p-4 space-y-3">
                     <div className="flex justify-between text-sm">
@@ -159,7 +160,7 @@ export default function EmployeeDetails({
 
                 <section>
                   <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <Tag size={14} /> Currently Assigned Assets
+                    <Tag className={iconSize.xs} /> Currently Assigned Assets
                   </h3>
                   <div className="space-y-3">
                     {activeAssets.length === 0 ? (
@@ -190,7 +191,7 @@ export default function EmployeeDetails({
               <div className="lg:col-span-2 space-y-8">
                 <section>
                   <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <History size={14} /> Activity History
+                    <History className={iconSize.xs} /> Activity History
                   </h3>
                   <div className="space-y-4">
                     {history.length === 0 ? (
@@ -251,7 +252,7 @@ export default function EmployeeDetails({
 
                 <section>
                   <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <Calendar size={14} /> Assignment Logs
+                    <Calendar className={iconSize.xs} /> Assignment Logs
                   </h3>
                   <div className="overflow-hidden rounded-2xl border border-gray-100">
                     <table className="w-full text-left text-sm">
@@ -304,7 +305,7 @@ export default function EmployeeDetails({
                                   className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                   title="Delete assignment"
                                 >
-                                  <Trash2 size={16} />
+                                  <Trash2 className={iconSize.sm} />
                                 </button>
                               </div>
                             </td>
