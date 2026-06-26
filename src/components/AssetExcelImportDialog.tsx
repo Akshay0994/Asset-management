@@ -110,7 +110,7 @@ export default function AssetExcelImportDialog({
           <p>
             Use the <span className="font-semibold text-gray-800">Assignments</span> sheet to import every assignee
             with assigned, returned, and expected return dates. One row per check-out; leave Returned Date blank for
-            the current assignment.
+            the current assignment. Asset status and current assignee are updated automatically from that sheet.
           </p>
           <p className="text-gray-500">
             Rows with status <span className="font-medium text-gray-700">Inventory</span> and no assignee will

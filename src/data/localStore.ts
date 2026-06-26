@@ -84,7 +84,10 @@ export function insertAsset(row: Omit<Asset, 'id'>): string {
 export function patchAsset(id: string, patch: Partial<Asset>): void {
   const i = state.assets.findIndex((a) => a.id === id);
   if (i < 0) return;
-  state.assets[i] = { ...state.assets[i], ...patch, id };
+  state = {
+    ...state,
+    assets: state.assets.map((a) => (a.id === id ? { ...a, ...patch, id } : a)),
+  };
   persist();
 }
 
@@ -402,7 +405,7 @@ function findAssetBySerial(serial: string): Asset | undefined {
   return state.assets.find((a) => a.serialNumber.trim().toLowerCase() === t);
 }
 
-/** Match import column to an employee by employee number or email (case-insensitive). */
+/** Match import column to an employee by employee number, email, or name (case-insensitive). */
 export function findEmployeeForImportAssignee(key: string): Employee | undefined {
   const k = key.trim().toLowerCase();
   if (!k) return undefined;
@@ -413,7 +416,9 @@ export function findEmployeeForImportAssignee(key: string): Employee | undefined
         e.employeeNumber.trim().toLowerCase() === k
     );
   }
-  return state.employees.find((e) => e.employeeNumber.trim().toLowerCase() === k);
+  const byNumber = state.employees.find((e) => e.employeeNumber.trim().toLowerCase() === k);
+  if (byNumber) return byNumber;
+  return state.employees.find((e) => e.name.trim().toLowerCase() === k);
 }
 
 function listOpenAssignmentsForAsset(assetId: string): Assignment[] {
@@ -454,7 +459,8 @@ export function applyAssetImportRow(
   const warnings: string[] = [];
   const { catalog, assigneeEmployeeKey, providedFields } = row;
   const provided = new Set(providedFields);
-  const assignKey = options?.skipCatalogAssignee ? '' : (assigneeEmployeeKey || '').trim();
+  const deferToAssignmentsSheet = options?.skipCatalogAssignee ?? false;
+  const assignKey = deferToAssignmentsSheet ? '' : (assigneeEmployeeKey || '').trim();
   const now = Timestamp.now();
   const serial = catalog.serialNumber.trim();
 
@@ -470,7 +476,7 @@ export function applyAssetImportRow(
     if (provided.has('model')) patch.model = catalog.model;
     if (provided.has('type')) patch.type = catalog.type;
     if (provided.has('location')) patch.location = catalog.location;
-    if (provided.has('status') && !assignKey) patch.status = catalog.status;
+    if (provided.has('status') && !assignKey && !deferToAssignmentsSheet) patch.status = catalog.status;
     if (provided.has('warrantyStatus')) patch.warrantyStatus = catalog.warrantyStatus;
     if (provided.has('warrantyExpiry') && catalog.warrantyExpiry) patch.warrantyExpiry = catalog.warrantyExpiry;
     if (provided.has('purchaseDate') && catalog.purchaseDate) patch.purchaseDate = catalog.purchaseDate;
@@ -487,6 +493,10 @@ export function applyAssetImportRow(
       timestamp: now,
       performedBy: PERFORMED_BY,
     });
+
+    if (deferToAssignmentsSheet) {
+      return { created: false, warnings };
+    }
 
     return finishAssetImportAssignment(existing.id, catalog, assignKey, row.excelRow, warnings, false);
   }
@@ -517,6 +527,10 @@ export function applyAssetImportRow(
     timestamp: now,
     performedBy: PERFORMED_BY,
   });
+
+  if (deferToAssignmentsSheet) {
+    return { created: true, warnings };
+  }
 
   return finishAssetImportAssignment(assetId, catalog, assignKey, row.excelRow, warnings, true);
 }
@@ -626,11 +640,15 @@ export function applyAssetAssignmentImport(rows: ParsedAssetAssignmentImportRow[
 
   for (const assetId of affectedAssetIds) {
     reconcileAssetAssignmentState(assetId);
+  }
+
+  const nowHistory = Timestamp.now();
+  for (const assetId of affectedAssetIds) {
     insertHistory({
       assetId,
       type: 'Update',
       description: 'Assignment history restored from spreadsheet import.',
-      timestamp: now,
+      timestamp: nowHistory,
       performedBy: PERFORMED_BY,
     });
   }
