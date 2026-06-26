@@ -82,9 +82,9 @@ export default function AssetExcelImportDialog({
             <div>
               <h2 className="text-xl font-bold text-gray-900">Import assets from Excel</h2>
               <p className="text-sm text-gray-500 mt-0.5">
-                .xlsx or .xls — <span className="font-medium text-gray-700">Assets</span> sheet (required) and optional{' '}
-                <span className="font-medium text-gray-700">Assignments</span> sheet with full check-out history. Each
-                asset row is matched by <span className="font-medium text-gray-700">Serial Number</span>.
+                Use an exported <span className="font-medium text-gray-700">.xlsx</span> file as-is, or the template.
+                Each asset is matched by <span className="font-medium text-gray-700">Serial Number</span> and updated in
+                place; blank cells are left unchanged.
               </p>
             </div>
           </div>

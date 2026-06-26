@@ -242,6 +242,29 @@ function mapAssignmentRow(raw: Record<string, unknown>): Partial<Record<Assignme
   return mapped;
 }
 
+function sheetLooksLikeAssets(sheet: XLSX.WorkSheet): boolean {
+  const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, range: 0, defval: '' });
+  const headerRow = rows[0];
+  if (!Array.isArray(headerRow)) return false;
+  const headers = headerRow.map((h) => normHeader(String(h ?? '')));
+  const hasSerial = headers.some((h) => HEADER_TO_FIELD[h] === 'serialNumber');
+  const hasName = headers.some((h) => HEADER_TO_FIELD[h] === 'name');
+  return hasSerial && hasName;
+}
+
+function findAssetsSheet(wb: XLSX.WorkBook): { sheet: XLSX.WorkSheet; name: string } | null {
+  const byName = findWorksheet(wb, ['Assets', 'Asset', 'Sheet1'], 0);
+  if (byName) return byName;
+
+  for (const name of wb.SheetNames) {
+    const sheet = wb.Sheets[name];
+    if (sheet && sheetLooksLikeAssets(sheet) && !sheetLooksLikeAssignments(sheet)) {
+      return { sheet, name };
+    }
+  }
+  return null;
+}
+
 function sheetLooksLikeAssignments(sheet: XLSX.WorkSheet): boolean {
   const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, range: 0, defval: '' });
   const headerRow = rows[0];
@@ -402,13 +425,34 @@ function mapRow(raw: Record<string, unknown>): {
   for (const [key, val] of Object.entries(raw)) {
     const nk = normHeader(key);
     const field = HEADER_TO_FIELD[nk];
-    if (!field) continue;
-    provided.add(field);
+    if (!field || field === 'assigneeEmployeeKey') continue;
     const s = field === 'serialNumber' ? serialCellStr(val) : cellStr(val);
     if (s === '') continue;
+    provided.add(field);
     mapped[field] = s;
   }
   return { mapped, provided };
+}
+
+function readAssetAssigneeKey(
+  raw: Record<string, unknown>,
+  mapped: Partial<Record<HeaderField, string>>
+): string {
+  let employeeId = '';
+  let assigneeEmail = '';
+
+  for (const [key, val] of Object.entries(raw)) {
+    const nk = normHeader(key);
+    if (nk === 'employee id' || nk === 'employeeid' || nk === 'employee number' || nk === 'emp') {
+      const s = cellStr(val);
+      if (s) employeeId = s;
+    } else if (nk === 'assignee email') {
+      const s = cellStr(val);
+      if (s) assigneeEmail = s;
+    }
+  }
+
+  return (employeeId || assigneeEmail || mapped.assigneeEmployeeKey || '').trim();
 }
 
 function readSerialFromRow(
@@ -476,7 +520,7 @@ export function parseAssetExcelBuffer(buffer: ArrayBuffer): {
   assignmentRowErrors: AssetImportRowError[];
 } {
   const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
-  const assetsSheet = findWorksheet(wb, ['Assets', 'Asset', 'Sheet1'], 0);
+  const assetsSheet = findAssetsSheet(wb);
   if (!assetsSheet) {
     return {
       rows: [],
@@ -526,9 +570,10 @@ function parseAssetSheet(sheet: XLSX.WorkSheet): {
       const nk = normHeader(key);
       const f = HEADER_TO_FIELD[nk];
       if (!f || (f !== 'warrantyExpiry' && f !== 'purchaseDate')) continue;
-      provided.add(f);
       const ts = parseFlexibleDate(val);
-      if (ts && !((f === 'warrantyExpiry' && m.warrantyExpiry) || (f === 'purchaseDate' && m.purchaseDate))) {
+      if (!ts) continue;
+      provided.add(f);
+      if (!((f === 'warrantyExpiry' && m.warrantyExpiry) || (f === 'purchaseDate' && m.purchaseDate))) {
         dateExtras[f] = ts;
       }
     }
@@ -539,7 +584,8 @@ function parseAssetSheet(sheet: XLSX.WorkSheet): {
       return;
     }
 
-    const assignKey = (m.assigneeEmployeeKey || '').trim();
+    const assignKey = readAssetAssigneeKey(raw, m);
+    if (assignKey) provided.add('assigneeEmployeeKey');
 
     let warrantyExpiry: Timestamp | undefined;
     let purchaseDate: Timestamp | undefined;
@@ -580,6 +626,28 @@ function parseAssetSheet(sheet: XLSX.WorkSheet): {
 function formatImportDate(ts: Timestamp | undefined): string {
   if (!ts) return '';
   return format(ts.toDate(), 'yyyy-MM-dd');
+}
+
+function formatWorksheetTextColumns(ws: XLSX.WorkSheet, columnIndexes: number[]): void {
+  const ref = ws['!ref'];
+  if (!ref) return;
+  const range = XLSX.utils.decode_range(ref);
+  for (let r = range.s.r + 1; r <= range.e.r; r++) {
+    for (const c of columnIndexes) {
+      const addr = XLSX.utils.encode_cell({ r, c });
+      const cell = ws[addr];
+      if (!cell || cell.v == null || cell.v === '') continue;
+      cell.t = 's';
+      cell.v = String(cell.v);
+      cell.z = '@';
+    }
+  }
+}
+
+function buildWorksheet(data: unknown[][], textColumnIndexes: number[] = []): XLSX.WorkSheet {
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  if (textColumnIndexes.length > 0) formatWorksheetTextColumns(ws, textColumnIndexes);
+  return ws;
 }
 
 function formatDateTime(ts: Timestamp | undefined): string {
@@ -659,10 +727,10 @@ export function downloadAssetsWorkbook(
   const assetIds = new Set(assets.map((a) => a.id));
   const assetById = new Map(assets.map((a) => [a.id, a]));
 
-  const assetsWs = XLSX.utils.aoa_to_sheet([
-    [...ASSET_IMPORT_HEADERS],
-    ...assets.map((a) => assetToImportRow(a, employeesById)),
-  ]);
+  const assetsWs = buildWorksheet(
+    [[...ASSET_IMPORT_HEADERS], ...assets.map((a) => assetToImportRow(a, employeesById))],
+    [0, 13, 14]
+  );
 
   const assignmentData = assignments
     .filter((a) => assetIds.has(a.assetId))
@@ -675,7 +743,7 @@ export function downloadAssetsWorkbook(
     })
     .map((a) => assignmentToImportRow(a, assetById.get(a.assetId)!, employeesById));
 
-  const assignmentsWs = XLSX.utils.aoa_to_sheet([[...ASSET_ASSIGNMENT_HEADERS], ...assignmentData]);
+  const assignmentsWs = buildWorksheet([[...ASSET_ASSIGNMENT_HEADERS], ...assignmentData], [0, 2, 3]);
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, assetsWs, 'Assets');
@@ -684,51 +752,57 @@ export function downloadAssetsWorkbook(
 }
 
 export function downloadAssetImportTemplate(): void {
-  const assetsWs = XLSX.utils.aoa_to_sheet([
-    [...ASSET_IMPORT_HEADERS],
+  const assetsWs = buildWorksheet(
     [
-      'ABC123XYZ',
-      'MacBook Pro 16',
-      'M4 Pro',
-      'laptop',
-      'HQ',
-      'Assigned',
-      'Active',
-      '2026-06-01',
-      '2024-11-01',
-      '48GB',
-      '1TB',
-      'Apple M4 Pro',
-      'Finance pool',
-      'E001',
-      '',
+      [...ASSET_IMPORT_HEADERS],
+      [
+        'ABC123XYZ',
+        'MacBook Pro 16',
+        'M4 Pro',
+        'laptop',
+        'HQ',
+        'Assigned',
+        'Active',
+        '2026-06-01',
+        '2024-11-01',
+        '48GB',
+        '1TB',
+        'Apple M4 Pro',
+        'Finance pool',
+        'E001',
+        '',
+      ],
     ],
-  ]);
-  const assignmentsWs = XLSX.utils.aoa_to_sheet([
-    [...ASSET_ASSIGNMENT_HEADERS],
+    [0, 13, 14]
+  );
+  const assignmentsWs = buildWorksheet(
     [
-      'ABC123XYZ',
-      'Jane Doe',
-      'E001',
-      '',
-      '2024-11-15 09:00',
-      '',
-      '2025-11-15',
-      'Good',
-      'Current checkout',
+      [...ASSET_ASSIGNMENT_HEADERS],
+      [
+        'ABC123XYZ',
+        'Jane Doe',
+        'E001',
+        '',
+        '2024-11-15 09:00',
+        '',
+        '2025-11-15',
+        'Good',
+        'Current checkout',
+      ],
+      [
+        'ABC123XYZ',
+        'John Smith',
+        'E002',
+        '',
+        '2024-01-10 14:30',
+        '2024-11-14 17:00',
+        '',
+        'Good',
+        'Previous assignee',
+      ],
     ],
-    [
-      'ABC123XYZ',
-      'John Smith',
-      'E002',
-      '',
-      '2024-01-10 14:30',
-      '2024-11-14 17:00',
-      '',
-      'Good',
-      'Previous assignee',
-    ],
-  ]);
+    [0, 2, 3]
+  );
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, assetsWs, 'Assets');
   XLSX.utils.book_append_sheet(wb, assignmentsWs, 'Assignments');

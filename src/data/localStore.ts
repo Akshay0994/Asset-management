@@ -480,10 +480,10 @@ export function applyAssetImportRow(
     if (provided.has('warrantyStatus')) patch.warrantyStatus = catalog.warrantyStatus;
     if (provided.has('warrantyExpiry') && catalog.warrantyExpiry) patch.warrantyExpiry = catalog.warrantyExpiry;
     if (provided.has('purchaseDate') && catalog.purchaseDate) patch.purchaseDate = catalog.purchaseDate;
-    if (provided.has('ram')) patch.ram = catalog.ram;
-    if (provided.has('storage')) patch.storage = catalog.storage;
-    if (provided.has('chip')) patch.chip = catalog.chip;
-    if (provided.has('notes')) patch.notes = catalog.notes;
+    if (provided.has('ram') && catalog.ram !== undefined) patch.ram = catalog.ram;
+    if (provided.has('storage') && catalog.storage !== undefined) patch.storage = catalog.storage;
+    if (provided.has('chip') && catalog.chip !== undefined) patch.chip = catalog.chip;
+    if (provided.has('notes') && catalog.notes !== undefined) patch.notes = catalog.notes;
 
     patchAsset(existing.id, patch);
     insertHistory({
