@@ -1,5 +1,5 @@
 import { Timestamp } from '../lib/timestamp';
-import type { ParsedAssetImportRow } from '../lib/assetExcelImport';
+import type { ParsedAssetAssignmentImportRow, ParsedAssetImportRow } from '../lib/assetExcelImport';
 import type { Asset, Assignment, Employee, EmployeeType, EmploymentStatus, HistoryEvent } from '../types';
 
 const STORAGE_KEY = 'assettrack-it-v1';
@@ -447,11 +447,14 @@ export function closeOpenAssignmentsForAsset(assetId: string, returnAt: Timestam
  * Upsert one parsed import row (by serial number) and optionally assign to an employee.
  * Existing assets are matched by serial (case-insensitive); only columns present in the row are updated.
  */
-export function applyAssetImportRow(row: ParsedAssetImportRow): { created: boolean; warnings: string[] } {
+export function applyAssetImportRow(
+  row: ParsedAssetImportRow,
+  options?: { skipCatalogAssignee?: boolean }
+): { created: boolean; warnings: string[] } {
   const warnings: string[] = [];
   const { catalog, assigneeEmployeeKey, providedFields } = row;
   const provided = new Set(providedFields);
-  const assignKey = (assigneeEmployeeKey || '').trim();
+  const assignKey = options?.skipCatalogAssignee ? '' : (assigneeEmployeeKey || '').trim();
   const now = Timestamp.now();
   const serial = catalog.serialNumber.trim();
 
@@ -563,21 +566,112 @@ function finishAssetImportAssignment(
   return { created, warnings };
 }
 
-export function applyAssetImportRows(rows: ParsedAssetImportRow[]): {
+/** Replace assignment history for imported serials from the Assignments sheet. */
+export function applyAssetAssignmentImport(rows: ParsedAssetAssignmentImportRow[]): {
+  imported: number;
+  warnings: string[];
+} {
+  if (rows.length === 0) return { imported: 0, warnings: [] };
+
+  const warnings: string[] = [];
+  let imported = 0;
+  const bySerial = new Map<string, ParsedAssetAssignmentImportRow[]>();
+
+  for (const row of rows) {
+    const key = row.serialNumber.trim().toLowerCase();
+    const list = bySerial.get(key) ?? [];
+    list.push(row);
+    bySerial.set(key, list);
+  }
+
+  let assignments = [...state.assignments];
+  const affectedAssetIds = new Set<string>();
+  const now = Timestamp.now();
+
+  for (const [, list] of bySerial) {
+    const serialLabel = list[0]!.serialNumber.trim();
+    const asset = findAssetBySerial(serialLabel);
+    if (!asset) {
+      warnings.push(`Assignments sheet: no asset with serial “${serialLabel}”.`);
+      continue;
+    }
+
+    assignments = assignments.filter((a) => a.assetId !== asset.id);
+    const sorted = [...list].sort((a, b) => a.assignedAt.toMillis() - b.assignedAt.toMillis());
+
+    for (const row of sorted) {
+      const emp = findEmployeeForImportAssignee(row.employeeKey);
+      if (!emp) {
+        warnings.push(`Assignments row ${row.excelRow}: no employee matched “${row.employeeKey}”.`);
+        continue;
+      }
+      assignments.push({
+        id: newId(),
+        assetId: asset.id,
+        employeeId: emp.id,
+        assignedAt: row.assignedAt,
+        returnedAt: row.returnedAt,
+        returnDate: row.returnDate ?? null,
+        condition: row.condition,
+        notes: row.notes,
+      });
+      imported += 1;
+    }
+
+    affectedAssetIds.add(asset.id);
+  }
+
+  state = { ...state, assignments };
+  persist();
+
+  for (const assetId of affectedAssetIds) {
+    reconcileAssetAssignmentState(assetId);
+    insertHistory({
+      assetId,
+      type: 'Update',
+      description: 'Assignment history restored from spreadsheet import.',
+      timestamp: now,
+      performedBy: PERFORMED_BY,
+    });
+  }
+
+  return { imported, warnings };
+}
+
+export function applyAssetImportRows(
+  rows: ParsedAssetImportRow[],
+  assignmentRows: ParsedAssetAssignmentImportRow[] = []
+): {
   created: number;
   updated: number;
   warnings: string[];
+  assignmentsImported: number;
 } {
+  const serialsWithAssignmentSheet = new Set(
+    assignmentRows.map((r) => r.serialNumber.trim().toLowerCase())
+  );
+
   let created = 0;
   let updated = 0;
   const warnings: string[] = [];
   for (const row of rows) {
-    const r = applyAssetImportRow(row);
+    const skipCatalogAssignee = serialsWithAssignmentSheet.has(
+      row.catalog.serialNumber.trim().toLowerCase()
+    );
+    const r = applyAssetImportRow(row, { skipCatalogAssignee });
     if (r.created) created += 1;
     else updated += 1;
     warnings.push(...r.warnings);
   }
-  return { created, updated, warnings };
+
+  let assignmentsImported = 0;
+  if (assignmentRows.length > 0) {
+    const assignmentResult = applyAssetAssignmentImport(assignmentRows);
+    assignmentsImported = assignmentResult.imported;
+    warnings.push(...assignmentResult.warnings);
+  }
+
+  return { created, updated, warnings, assignmentsImported };
 }
 
 function runStartupMigrations(): void {

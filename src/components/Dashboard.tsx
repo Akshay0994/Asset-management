@@ -5,6 +5,7 @@ import {
   ASSET_LIST_STATUS_RETIRED_STOLEN,
   ASSET_LIST_WARRANTY_EXPIRING_30D,
   AssetListNavigateFilters,
+  Assignment,
   Employee,
   HistoryEvent,
 } from '../types';
@@ -29,7 +30,7 @@ import { format, formatDistanceToNow, differenceInCalendarDays } from 'date-fns'
 import { motion } from 'motion/react';
 import { cn, sortHistoryNewestFirst } from '../lib/utils';
 import { iconSize } from '../lib/icons';
-import { downloadAssetsCsv } from '../lib/assetExcelImport';
+import { downloadAssetsWorkbook } from '../lib/assetExcelImport';
 import { downloadEmployeesCsv } from '../lib/employeeExcelImport';
 
 const MS_DAY = 86_400_000;
@@ -88,6 +89,7 @@ export default function Dashboard({
 }) {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [history, setHistory] = useState<HistoryEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [distributionTab, setDistributionTab] = useState<'type' | 'location' | 'model'>('type');
@@ -97,6 +99,7 @@ export default function Dashboard({
       const s = getState();
       setAssets(s.assets);
       setEmployees(s.employees);
+      setAssignments(s.assignments);
       const weekAgo = Date.now() - 7 * MS_DAY;
       setHistory(
         s.history
@@ -324,7 +327,7 @@ export default function Dashboard({
           <div className="icon-toolbar md:justify-end">
             <button
               type="button"
-              onClick={() => downloadAssetsCsv(assets, employees)}
+              onClick={() => downloadAssetsWorkbook(assets, employees, assignments)}
               className="inline-flex items-center gap-2 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
             >
               <ArrowUpRight className={iconSize.sm} />

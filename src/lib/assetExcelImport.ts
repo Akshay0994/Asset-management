@@ -1,9 +1,8 @@
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
-import type { Asset, AssetStatus, Employee, WarrantyStatus } from '../types';
+import type { Asset, AssetStatus, Assignment, Employee, WarrantyStatus } from '../types';
 import { Timestamp } from './timestamp';
 import { normalizeAssetTypeInput } from './utils';
-import { downloadCsvFile, rowsToCsv } from './csvExport';
 
 export const ASSET_IMPORT_HEADERS = [
   'Serial Number',
@@ -22,6 +21,29 @@ export const ASSET_IMPORT_HEADERS = [
   'Employee ID',
   'Assignee Email',
 ] as const;
+
+export const ASSET_ASSIGNMENT_HEADERS = [
+  'Serial Number',
+  'Assignee Name',
+  'Employee ID',
+  'Assignee Email',
+  'Assigned Date',
+  'Returned Date',
+  'Expected Return Date',
+  'Condition',
+  'Notes',
+] as const;
+
+export type ParsedAssetAssignmentImportRow = {
+  excelRow: number;
+  serialNumber: string;
+  employeeKey: string;
+  assignedAt: Timestamp;
+  returnedAt?: Timestamp;
+  returnDate?: Timestamp | null;
+  condition?: string;
+  notes?: string;
+};
 
 export type ParsedAssetCatalogRow = {
   serialNumber: string;
@@ -166,6 +188,154 @@ const HEADER_TO_FIELD: Record<string, HeaderField | null> = {
   'assignee email': 'assigneeEmployeeKey',
 };
 
+type AssignmentHeaderField =
+  | 'serialNumber'
+  | 'employeeKey'
+  | 'assignedAt'
+  | 'returnedAt'
+  | 'returnDate'
+  | 'condition'
+  | 'notes';
+
+const ASSIGNMENT_HEADER_TO_FIELD: Record<string, AssignmentHeaderField | null> = {
+  serial: 'serialNumber',
+  'serial number': 'serialNumber',
+  serialnumber: 'serialNumber',
+  sn: 'serialNumber',
+
+  'employee id': 'employeeKey',
+  employeeid: 'employeeKey',
+  'employee number': 'employeeKey',
+  emp: 'employeeKey',
+  assignee: 'employeeKey',
+  assignedto: 'employeeKey',
+  'assignee email': 'employeeKey',
+
+  'assigned date': 'assignedAt',
+  assigned: 'assignedAt',
+  'check out date': 'assignedAt',
+  checkout: 'assignedAt',
+
+  'returned date': 'returnedAt',
+  returned: 'returnedAt',
+  'check in date': 'returnedAt',
+  checkin: 'returnedAt',
+
+  'expected return date': 'returnDate',
+  'return date': 'returnDate',
+
+  condition: 'condition',
+  notes: 'notes',
+};
+
+function mapAssignmentRow(raw: Record<string, unknown>): Partial<Record<AssignmentHeaderField, string>> {
+  const mapped: Partial<Record<AssignmentHeaderField, string>> = {};
+  for (const [key, val] of Object.entries(raw)) {
+    const nk = normHeader(key);
+    if (nk === 'assignee name') continue;
+    const field = ASSIGNMENT_HEADER_TO_FIELD[nk];
+    if (!field) continue;
+    const s = field === 'serialNumber' ? serialCellStr(val) : cellStr(val);
+    if (s === '') continue;
+    mapped[field] = s;
+  }
+  return mapped;
+}
+
+function findWorksheet(
+  wb: XLSX.WorkBook,
+  preferredNames: string[],
+  fallbackIndex?: number
+): { sheet: XLSX.WorkSheet; name: string } | null {
+  for (const preferred of preferredNames) {
+    const match = wb.SheetNames.find((n) => n.trim().toLowerCase() === preferred.toLowerCase());
+    if (match && wb.Sheets[match]) return { sheet: wb.Sheets[match]!, name: match };
+  }
+  if (fallbackIndex != null && wb.SheetNames[fallbackIndex] && wb.Sheets[wb.SheetNames[fallbackIndex]!]) {
+    const name = wb.SheetNames[fallbackIndex]!;
+    return { sheet: wb.Sheets[name]!, name };
+  }
+  return null;
+}
+
+function readAssignmentSerial(raw: Record<string, unknown>, mapped: Partial<Record<AssignmentHeaderField, string>>): string {
+  for (const [key, val] of Object.entries(raw)) {
+    if (ASSIGNMENT_HEADER_TO_FIELD[normHeader(key)] !== 'serialNumber') continue;
+    const s = serialCellStr(val);
+    if (s) return s.trim();
+  }
+  return serialCellStr(mapped.serialNumber ?? '').trim();
+}
+
+function readAssignmentTimestamp(
+  raw: Record<string, unknown>,
+  mapped: Partial<Record<AssignmentHeaderField, string>>,
+  field: 'assignedAt' | 'returnedAt' | 'returnDate'
+): Timestamp | undefined {
+  for (const [key, val] of Object.entries(raw)) {
+    const nk = normHeader(key);
+    if (ASSIGNMENT_HEADER_TO_FIELD[nk] !== field) continue;
+    const ts = parseFlexibleDate(val);
+    if (ts) return ts;
+  }
+  const fromMapped = mapped[field];
+  return fromMapped ? parseFlexibleDate(fromMapped) : undefined;
+}
+
+function parseAssignmentSheet(sheet: XLSX.WorkSheet): {
+  rows: ParsedAssetAssignmentImportRow[];
+  rowErrors: AssetImportRowError[];
+} {
+  const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '', raw: true });
+  const rows: ParsedAssetAssignmentImportRow[] = [];
+  const rowErrors: AssetImportRowError[] = [];
+
+  json.forEach((raw, i) => {
+    const excelRow = i + 2;
+    const hasAnyCell = Object.values(raw).some((v) => {
+      if (v == null || v === '') return false;
+      if (typeof v === 'string') return v.trim().length > 0;
+      return true;
+    });
+    if (!hasAnyCell) return;
+
+    const m = mapAssignmentRow(raw);
+    const serialRaw = readAssignmentSerial(raw, m);
+    if (!serialRaw) {
+      rowErrors.push({ excelRow, message: 'Serial Number is required on each assignment row.' });
+      return;
+    }
+
+    const employeeKey = (m.employeeKey || '').trim();
+    if (!employeeKey) {
+      rowErrors.push({ excelRow, message: 'Employee ID or Assignee Email is required on each assignment row.' });
+      return;
+    }
+
+    const assignedAt = readAssignmentTimestamp(raw, m, 'assignedAt');
+    if (!assignedAt) {
+      rowErrors.push({ excelRow, message: 'Assigned Date is required on each assignment row.' });
+      return;
+    }
+
+    const returnedAt = readAssignmentTimestamp(raw, m, 'returnedAt');
+    const returnDate = readAssignmentTimestamp(raw, m, 'returnDate');
+
+    rows.push({
+      excelRow,
+      serialNumber: serialRaw,
+      employeeKey,
+      assignedAt,
+      returnedAt,
+      returnDate: returnDate ?? undefined,
+      condition: m.condition?.trim() || undefined,
+      notes: m.notes?.trim() || undefined,
+    });
+  });
+
+  return { rows, rowErrors };
+}
+
 function mapRow(raw: Record<string, unknown>): {
   mapped: Partial<Record<HeaderField, string>>;
   provided: Set<HeaderField>;
@@ -238,13 +408,38 @@ function parseWarrantyStatus(raw: string): WarrantyStatus {
 export function parseAssetExcelBuffer(buffer: ArrayBuffer): {
   rows: ParsedAssetImportRow[];
   rowErrors: AssetImportRowError[];
+  assignmentRows: ParsedAssetAssignmentImportRow[];
+  assignmentRowErrors: AssetImportRowError[];
 } {
   const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
-  const sheetName = wb.SheetNames[0];
-  if (!sheetName) {
-    return { rows: [], rowErrors: [{ excelRow: 0, message: 'Workbook has no sheets.' }] };
+  const assetsSheet = findWorksheet(wb, ['Assets', 'Asset', 'Sheet1'], 0);
+  if (!assetsSheet) {
+    return {
+      rows: [],
+      rowErrors: [{ excelRow: 0, message: 'Workbook has no Assets sheet.' }],
+      assignmentRows: [],
+      assignmentRowErrors: [],
+    };
   }
-  const sheet = wb.Sheets[sheetName];
+
+  const { rows, rowErrors } = parseAssetSheet(assetsSheet.sheet);
+
+  const assignmentSheet = findWorksheet(wb, ['Assignments', 'Assignment'], 1);
+  let assignmentRows: ParsedAssetAssignmentImportRow[] = [];
+  let assignmentRowErrors: AssetImportRowError[] = [];
+  if (assignmentSheet) {
+    const parsed = parseAssignmentSheet(assignmentSheet.sheet);
+    assignmentRows = parsed.rows;
+    assignmentRowErrors = parsed.rowErrors;
+  }
+
+  return { rows, rowErrors, assignmentRows, assignmentRowErrors };
+}
+
+function parseAssetSheet(sheet: XLSX.WorkSheet): {
+  rows: ParsedAssetImportRow[];
+  rowErrors: AssetImportRowError[];
+} {
   const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '', raw: true });
 
   const rows: ParsedAssetImportRow[] = [];
@@ -323,6 +518,11 @@ function formatImportDate(ts: Timestamp | undefined): string {
   return format(ts.toDate(), 'yyyy-MM-dd');
 }
 
+function formatDateTime(ts: Timestamp | undefined): string {
+  if (!ts) return '';
+  return format(ts.toDate(), 'yyyy-MM-dd HH:mm');
+}
+
 function assigneeExportColumns(
   employee: Employee | undefined
 ): { employeeId: string; assigneeEmail: string } {
@@ -362,22 +562,65 @@ export function assetToImportRow(asset: Asset, employeesById: Map<string, Employ
   ];
 }
 
-export function downloadAssetsCsv(
+/** One assignment row in the same column order as the Assignments sheet. */
+export function assignmentToImportRow(
+  assignment: Assignment,
+  asset: Asset,
+  employeesById: Map<string, Employee>
+): string[] {
+  const emp = employeesById.get(assignment.employeeId);
+  const { employeeId, assigneeEmail } = assigneeExportColumns(emp);
+
+  return [
+    asset.serialNumber.trim(),
+    emp?.name?.trim() || '',
+    employeeId,
+    assigneeEmail,
+    formatDateTime(assignment.assignedAt),
+    assignment.returnedAt ? formatDateTime(assignment.returnedAt) : '',
+    assignment.returnDate ? formatImportDate(assignment.returnDate) : '',
+    assignment.condition || '',
+    assignment.notes || '',
+  ];
+}
+
+export function downloadAssetsWorkbook(
   assets: Asset[],
   employees: Employee[],
+  assignments: Assignment[],
   filenamePrefix = 'asset_inventory'
 ): void {
   if (assets.length === 0) return;
   const employeesById = new Map(employees.map((e) => [e.id, e]));
-  const csv = rowsToCsv(
+  const assetIds = new Set(assets.map((a) => a.id));
+  const assetById = new Map(assets.map((a) => [a.id, a]));
+
+  const assetsWs = XLSX.utils.aoa_to_sheet([
     [...ASSET_IMPORT_HEADERS],
-    assets.map((a) => assetToImportRow(a, employeesById))
-  );
-  downloadCsvFile(csv, `${filenamePrefix}_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    ...assets.map((a) => assetToImportRow(a, employeesById)),
+  ]);
+
+  const assignmentData = assignments
+    .filter((a) => assetIds.has(a.assetId))
+    .sort((a, b) => {
+      const sa = assetById.get(a.assetId)?.serialNumber ?? '';
+      const sb = assetById.get(b.assetId)?.serialNumber ?? '';
+      const cmp = sa.localeCompare(sb);
+      if (cmp !== 0) return cmp;
+      return a.assignedAt.toMillis() - b.assignedAt.toMillis();
+    })
+    .map((a) => assignmentToImportRow(a, assetById.get(a.assetId)!, employeesById));
+
+  const assignmentsWs = XLSX.utils.aoa_to_sheet([[...ASSET_ASSIGNMENT_HEADERS], ...assignmentData]);
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, assetsWs, 'Assets');
+  XLSX.utils.book_append_sheet(wb, assignmentsWs, 'Assignments');
+  XLSX.writeFile(wb, `${filenamePrefix}_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
 }
 
 export function downloadAssetImportTemplate(): void {
-  const ws = XLSX.utils.aoa_to_sheet([
+  const assetsWs = XLSX.utils.aoa_to_sheet([
     [...ASSET_IMPORT_HEADERS],
     [
       'ABC123XYZ',
@@ -385,7 +628,7 @@ export function downloadAssetImportTemplate(): void {
       'M4 Pro',
       'laptop',
       'HQ',
-      'Inventory',
+      'Assigned',
       'Active',
       '2026-06-01',
       '2024-11-01',
@@ -393,11 +636,37 @@ export function downloadAssetImportTemplate(): void {
       '1TB',
       'Apple M4 Pro',
       'Finance pool',
-      '',
+      'E001',
       '',
     ],
   ]);
+  const assignmentsWs = XLSX.utils.aoa_to_sheet([
+    [...ASSET_ASSIGNMENT_HEADERS],
+    [
+      'ABC123XYZ',
+      'Jane Doe',
+      'E001',
+      '',
+      '2024-11-15 09:00',
+      '',
+      '2025-11-15',
+      'Good',
+      'Current checkout',
+    ],
+    [
+      'ABC123XYZ',
+      'John Smith',
+      'E002',
+      '',
+      '2024-01-10 14:30',
+      '2024-11-14 17:00',
+      '',
+      'Good',
+      'Previous assignee',
+    ],
+  ]);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Assets');
+  XLSX.utils.book_append_sheet(wb, assetsWs, 'Assets');
+  XLSX.utils.book_append_sheet(wb, assignmentsWs, 'Assignments');
   XLSX.writeFile(wb, 'asset_import_template.xlsx');
 }

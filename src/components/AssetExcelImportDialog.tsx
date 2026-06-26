@@ -34,19 +34,29 @@ export default function AssetExcelImportDialog({
     try {
       const { parseAssetExcelBuffer } = await import('../lib/assetExcelImport');
       const buf = await file.arrayBuffer();
-      const { rows, rowErrors } = parseAssetExcelBuffer(buf);
-      if (rows.length === 0 && rowErrors.length === 0) {
-        setMessage('No data rows found. Use the template: header row first, then one asset per row.');
+      const { rows, rowErrors, assignmentRows, assignmentRowErrors } = parseAssetExcelBuffer(buf);
+      if (rows.length === 0 && assignmentRows.length === 0 && rowErrors.length === 0 && assignmentRowErrors.length === 0) {
+        setMessage('No data rows found. Use the template: Assets sheet plus optional Assignments sheet.');
         return;
       }
-      const parseErrLines = rowErrors.map((err) => `Row ${err.excelRow}: ${err.message}`);
-      if (rows.length === 0) {
+      const parseErrLines = [
+        ...rowErrors.map((err) => `Row ${err.excelRow}: ${err.message}`),
+        ...assignmentRowErrors.map((err) => `Assignments row ${err.excelRow}: ${err.message}`),
+      ];
+      if (rows.length === 0 && assignmentRows.length === 0) {
         setErrors(parseErrLines);
         setMessage('No valid rows to import.');
         return;
       }
-      const { created, updated, warnings } = applyAssetImportRows(rows);
-      setMessage(`Imported ${rows.length} row(s): ${created} new, ${updated} updated.`);
+      const { created, updated, warnings, assignmentsImported } = applyAssetImportRows(rows, assignmentRows);
+      const parts: string[] = [];
+      if (rows.length > 0) {
+        parts.push(`${rows.length} asset row(s): ${created} new, ${updated} updated`);
+      }
+      if (assignmentsImported > 0) {
+        parts.push(`${assignmentsImported} assignment(s) imported`);
+      }
+      setMessage(`Imported ${parts.join('; ')}.`);
       setErrors([...parseErrLines, ...warnings]);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Could not read that file.');
@@ -72,9 +82,9 @@ export default function AssetExcelImportDialog({
             <div>
               <h2 className="text-xl font-bold text-gray-900">Import assets from Excel</h2>
               <p className="text-sm text-gray-500 mt-0.5">
-                .xlsx or .xls — first sheet only. Each row is matched by{' '}
-                <span className="font-medium text-gray-700">Serial Number</span> (updates existing assets; blank
-                columns are left unchanged).
+                .xlsx or .xls — <span className="font-medium text-gray-700">Assets</span> sheet (required) and optional{' '}
+                <span className="font-medium text-gray-700">Assignments</span> sheet with full check-out history. Each
+                asset row is matched by <span className="font-medium text-gray-700">Serial Number</span>.
               </p>
             </div>
           </div>
@@ -93,10 +103,14 @@ export default function AssetExcelImportDialog({
             If that serial already exists, the row <span className="font-semibold text-gray-800">updates</span> that
             asset; only filled-in columns change.{' '}
             <span className="font-semibold text-gray-800">Optional:</span> name, model, type, location, status,
-            warranty and purchase fields, RAM/storage/chip, notes, and <span className="font-semibold text-gray-800">
-              Employee ID or Assignee Email
-            </span>{' '}
-            to check the asset out after import.
+            warranty and purchase fields, RAM/storage/chip, notes, and{' '}
+            <span className="font-semibold text-gray-800">Employee ID or Assignee Email</span> on the Assets sheet
+            (ignored when that serial has rows on the Assignments sheet).
+          </p>
+          <p>
+            Use the <span className="font-semibold text-gray-800">Assignments</span> sheet to import every assignee
+            with assigned, returned, and expected return dates. One row per check-out; leave Returned Date blank for
+            the current assignment.
           </p>
           <p className="text-gray-500">
             Rows with status <span className="font-medium text-gray-700">Inventory</span> and no assignee will
