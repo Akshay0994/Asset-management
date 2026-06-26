@@ -242,6 +242,56 @@ function mapAssignmentRow(raw: Record<string, unknown>): Partial<Record<Assignme
   return mapped;
 }
 
+function sheetLooksLikeAssignments(sheet: XLSX.WorkSheet): boolean {
+  const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, range: 0, defval: '' });
+  const headerRow = rows[0];
+  if (!Array.isArray(headerRow)) return false;
+  const headers = headerRow.map((h) => normHeader(String(h ?? '')));
+  const hasSerial = headers.some((h) => ASSIGNMENT_HEADER_TO_FIELD[h] === 'serialNumber');
+  const hasAssignedDate = headers.some((h) => ASSIGNMENT_HEADER_TO_FIELD[h] === 'assignedAt');
+  return hasSerial && hasAssignedDate;
+}
+
+function findAssignmentsSheet(
+  wb: XLSX.WorkBook,
+  assetsSheetName: string
+): { sheet: XLSX.WorkSheet; name: string } | null {
+  const byName = findWorksheet(wb, ['Assignments', 'Assignment']);
+  if (byName) return byName;
+
+  for (const name of wb.SheetNames) {
+    if (name.trim().toLowerCase() === assetsSheetName.trim().toLowerCase()) continue;
+    const sheet = wb.Sheets[name];
+    if (sheet && sheetLooksLikeAssignments(sheet)) return { sheet, name };
+  }
+  return null;
+}
+
+function readAssignmentEmployeeKey(
+  raw: Record<string, unknown>,
+  mapped: Partial<Record<AssignmentHeaderField, string>>
+): string {
+  let employeeId = '';
+  let assigneeEmail = '';
+  let assigneeName = '';
+
+  for (const [key, val] of Object.entries(raw)) {
+    const nk = normHeader(key);
+    if (nk === 'employee id' || nk === 'employeeid' || nk === 'employee number' || nk === 'emp') {
+      const s = cellStr(val);
+      if (s) employeeId = s;
+    } else if (nk === 'assignee email') {
+      const s = cellStr(val);
+      if (s) assigneeEmail = s;
+    } else if (nk === 'assignee name' || nk === 'name') {
+      const s = cellStr(val);
+      if (s) assigneeName = s;
+    }
+  }
+
+  return (employeeId || assigneeEmail || assigneeName || mapped.employeeKey || '').trim();
+}
+
 function findWorksheet(
   wb: XLSX.WorkBook,
   preferredNames: string[],
@@ -253,7 +303,11 @@ function findWorksheet(
   }
   if (fallbackIndex != null && wb.SheetNames[fallbackIndex] && wb.Sheets[wb.SheetNames[fallbackIndex]!]) {
     const name = wb.SheetNames[fallbackIndex]!;
-    return { sheet: wb.Sheets[name]!, name };
+    const sheet = wb.Sheets[name]!;
+    if (preferredNames.some((p) => p.toLowerCase() === 'assets' || p.toLowerCase() === 'asset')) {
+      return { sheet, name };
+    }
+    if (sheetLooksLikeAssignments(sheet)) return { sheet, name };
   }
   return null;
 }
@@ -306,9 +360,12 @@ function parseAssignmentSheet(sheet: XLSX.WorkSheet): {
       return;
     }
 
-    const employeeKey = (m.employeeKey || '').trim();
+    const employeeKey = readAssignmentEmployeeKey(raw, m);
     if (!employeeKey) {
-      rowErrors.push({ excelRow, message: 'Employee ID or Assignee Email is required on each assignment row.' });
+      rowErrors.push({
+        excelRow,
+        message: 'Employee ID, Assignee Email, or Assignee Name is required on each assignment row.',
+      });
       return;
     }
 
@@ -370,6 +427,9 @@ function readSerialFromRow(
 /** Parse Excel-serial-ish days or ISO-like strings into Timestamp */
 export function parseFlexibleDate(raw: unknown): Timestamp | undefined {
   if (raw == null || raw === '') return undefined;
+  if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
+    return Timestamp.fromDate(raw);
+  }
   if (typeof raw === 'number' && Number.isFinite(raw)) {
     if (raw >= 25000 && raw <= 55000) {
       const ms = Math.round((raw - 25569) * 86400 * 1000);
@@ -380,7 +440,11 @@ export function parseFlexibleDate(raw: unknown): Timestamp | undefined {
   if (!s) return undefined;
   const iso = /\d{4}-\d{2}-\d{2}/.exec(s)?.[0];
   if (iso) {
-    const d = new Date(iso + 'T12:00:00');
+    const rest = s.slice(iso.length).trim();
+    const timeMatch = rest.match(/^(\d{1,2}:\d{2}(?::\d{2})?)/);
+    const d = timeMatch
+      ? new Date(`${iso}T${timeMatch[1]}`)
+      : new Date(`${iso}T12:00:00`);
     if (!Number.isNaN(d.getTime())) return Timestamp.fromDate(d);
   }
   const d = new Date(s);
@@ -424,7 +488,7 @@ export function parseAssetExcelBuffer(buffer: ArrayBuffer): {
 
   const { rows, rowErrors } = parseAssetSheet(assetsSheet.sheet);
 
-  const assignmentSheet = findWorksheet(wb, ['Assignments', 'Assignment'], 1);
+  const assignmentSheet = findAssignmentsSheet(wb, assetsSheet.name);
   let assignmentRows: ParsedAssetAssignmentImportRow[] = [];
   let assignmentRowErrors: AssetImportRowError[] = [];
   if (assignmentSheet) {
